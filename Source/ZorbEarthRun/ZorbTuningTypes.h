@@ -32,8 +32,17 @@ struct FZorbMovementTuning
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (ClampMin = "0.1", ClampMax = "30.0"))
     float DirectionResponse = 7.5f;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Boost", meta = (ClampMin = "1.0", ClampMax = "5.0"))
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Camera", meta = (ClampMin = "1.0", ClampMax = "5.0"))
     float BoostAccelerationMultiplier = 1.6f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Camera", meta = (ClampMin = "0.1", ClampMax = "10.0"))
+    float CameraRotationSpeed = 4.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Camera", meta = (ClampMin = "5.0", ClampMax = "50.0"))
+    float CameraDistance = 400.f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Camera", meta = (ClampMin = "-45", ClampMax = "0"))
+    float CameraPitchAngle = -20.f;
 };
 
 USTRUCT(BlueprintType)

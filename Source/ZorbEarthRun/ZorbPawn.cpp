@@ -28,6 +28,7 @@ AZorbPawn::AZorbPawn()
     HeatHaloCurrentColor = FLinearColor(1.0f, 0.95f, 0.2f, 1.0f);
     bBoostRequested = false;
     bBoostActive = false;
+    DesiredCameraRotation = FRotator(-20.f, 0.f, 0.f);
 
     AutoPossessPlayer = EAutoReceiveInput::Player0;
 
@@ -195,6 +196,8 @@ void AZorbPawn::Tick(float DeltaTime)
     }
 
     UpdateEnergyAndHeat(DeltaTime);
+
+    UpdateCameraRotation(DeltaTime);
 
     if (GetActorLocation().Z < RespawnTuning.KillZ)
     {
@@ -393,6 +396,39 @@ void AZorbPawn::ApplyProjectTuningIfEnabled()
         RespawnTuning = Settings->Respawn;
         FeedbackTuning = Settings->Feedback;
     }
+}
+
+void AZorbPawn::UpdateCameraRotation(float DeltaTime)
+{
+    if (!SpringArmComponent || !CollisionComponent)
+    {
+        return;
+    }
+
+    FVector Velocity = CollisionComponent->GetPhysicsLinearVelocity();
+    FVector VelocityXY = Velocity;
+    VelocityXY.Z = 0.f;
+
+    // Calculate desired camera yaw based on ball direction.
+    FRotator TargetRotation = DesiredCameraRotation;
+    
+    const float VelMag = VelocityXY.Length();
+    if (VelMag > 50.f) // Only update if moving significantly
+    {
+        FVector ForwardDir = VelocityXY.GetSafeNormal();
+        TargetRotation = ForwardDir.Rotation();
+        TargetRotation.Pitch = MovementTuning.CameraPitchAngle;
+        TargetRotation.Roll = 0.f;
+    }
+
+    // Smooth interpolation to new rotation.
+    const float BlendAlpha = FMath::Clamp(DeltaTime * MovementTuning.CameraRotationSpeed, 0.f, 1.f);
+    DesiredCameraRotation = FMath::Lerp(DesiredCameraRotation, TargetRotation, BlendAlpha);
+
+    // Apply to spring arm.
+    SpringArmComponent->SetUsingAbsoluteRotation(true);
+    SpringArmComponent->SetRelativeRotation(DesiredCameraRotation);
+    SpringArmComponent->TargetArmLength = MovementTuning.CameraDistance;
 }
 
 int32 AZorbPawn::GetOverheatLevel() const

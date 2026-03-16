@@ -83,4 +83,6 @@ private:
     FLinearColor HeatHaloCurrentColor;
     bool bBoostRequested;
     bool bBoostActive;
+    FRotator DesiredCameraRotation;
+    void UpdateCameraRotation(float DeltaTime);
 };
