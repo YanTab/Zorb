@@ -1,18 +1,18 @@
 ROADMAP DÉTAILLÉE — “ZORB EARTH RUN” (v1.0)
 
-## Suivi d'avancement (mis à jour le 2026-03-16)
+## Suivi d'avancement (mis à jour le 2026-03-17)
 
 ### Phase 0 — Pré-production
 - [x] Roadmap définie
 - [x] Setup du projet Unreal (base C++ fonctionnelle)
 - [x] Structure de dossiers `Content` initialisée (Blueprints, Materials, Meshes, Textures, UI, VFX, Audio)
 - [x] Contrôles de base du Zorb validés en jeu (déplacement + caméra)
-- [ ] Choix final du système de génération de mesh (ProceduralMeshComponent vs plugin)
-- [ ] Format des heightmaps serveur figé
-- [ ] Prototype énergie/surchauffe implémenté
+- [x] Choix final du système de génération de mesh (ProceduralMeshComponent vs plugin) — HeightmapProcessing pipeline
+- [x] Format des heightmaps serveur figé — 16-bit grayscale PNG + R16 raw
+- [x] Prototype énergie/surchauffe implémenté
 
 ### Phase 1 — Prototype jouable
-- [ ] Terrain issu d'une heightmap réelle
+- [x] Terrain issu d'une heightmap réelle — pipeline procédural + map perso importée en conditions réelles
 - [x] Zorb contrôlable sur map test
 - [x] Gameplay départ/arrivée: trigger d'arrivée fonctionnel (message + logs)
 - [x] Checkpoints: backend C++ + test en jeu validé (respawn fonctionnel)
@@ -23,11 +23,21 @@ ROADMAP DÉTAILLÉE — “ZORB EARTH RUN” (v1.0)
 - [x] Système énergie + surchauffe + explosion: prototype C++ implémenté (HUD + overheat critique + respawn), tuning validé
 - [x] Organisation des paramètres ajustables: profils structurés (Movement/Energy/Respawn/Feedback) + Project Settings `Zorb Tuning` + override local dans `BP_ZorbPawn`
 
-### Prochaines étapes immédiates (ordre recommandé)
-1. Valider et tuner en jeu les taux énergie/surchauffe (gain, cooldown, seuil critique). [validé]
-2. Ajouter un feedback visuel d'explosion (VFX/flash) sur surchauffe critique. [flash HUD + halo emissif avec transitions douces validés]
-3. Introduire un mini boost consommant l'énergie pour fermer la boucle gameplay. [validé en jeu]
-4. Paramètres feedback halo exposés dans Project Settings > Game > Zorb Tuning (Feedback)
+### En cours: TUNING PHASE 1 (conditions réelles sur map personnalisée)
+**Objectif** : affiner les paramètres Movement/Energy/Feedback sur terrain réel.
+**Map test**: map perso (Scale 200 x 200 x 100).
+**Paramètres à valider** :
+1. **Movement** : MaxSpeed, DirectionResponse, LateralGripForce (arcade fluide vs technique exigeante).
+2. **Energy** : EnergyGainRate/DrainRate/HeatGainRate comparés aux temps de jeu réel (session type).
+3. **Feedback** : HeatHaloBlendSpeed, intensités visuelles (halo, flash critique).
+4. **Boost** : BoostAccelerationMultiplier, coût énergétique vs temps d'utilisation moyenne.
+
+**Checklist tuning** :
+- [ ] Vitesse maximale stable et prévisible en ligne droite
+- [ ] Virage serré récupérable sans déséquilibre
+- [ ] Surchauffe pour raison gameplay (abus boost), pas hasard
+- [ ] Feedback halo progressif réactif
+- [ ] Flash critique visible sans saturer
 
 ### Préparation outillage tuning (future étape)
 1. Créer un écran Admin runtime pour éditer les paramètres critiques (movement/energy/respawn).
