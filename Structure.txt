@@ -1,0 +1,123 @@
+Zorb/
+│
+├── Docs/
+│   ├── GCD.md
+│   ├── GFD.md
+│   ├── TDD.md
+│   ├── Roadmap.md
+│   └── README.md
+│
+├── AI/
+│   ├── Prompts/
+│   │   ├── architecte.md
+│   │   ├── developpeur.md
+│   │   ├── terrain.md
+│   │   ├── gameplay.md
+│   │   ├── qa.md
+│   │   └── orchestrateur.md
+│   │
+│   ├── Outputs/
+│   │   ├── architecte/
+│   │   │   └── (fichiers générés par Claude)
+│   │   ├── developpeur/
+│   │   │   └── (fichiers générés par Copilot)
+│   │   ├── terrain/
+│   │   │   └── (fichiers générés par Qodo)
+│   │   ├── gameplay/
+│   │   │   └── (tuning, tables, JSON)
+│   │   └── qa/
+│   │       └── (tests, rapports)
+│   │
+│   └── Logs/
+│       └── (historique des échanges IA)
+│
+├── UnrealProject/
+│   ├── ZorbEarthRun.uproject
+│   │
+│   ├── Source/
+│   │   ├── ZorbEarthRun/
+│   │   │   ├── ZorbEarthRun.Build.cs
+│   │   │   ├── Main.cpp
+│   │   │   │
+│   │   │   ├── Core/
+│   │   │   │   ├── ZorbGameInstance.h
+│   │   │   │   ├── ZorbGameInstance.cpp
+│   │   │   │   ├── ZorbGameModeBase.h
+│   │   │   │   └── ZorbGameModeBase.cpp
+│   │   │   │
+│   │   │   ├── Zorb/
+│   │   │   │   ├── ZorbPawn.h
+│   │   │   │   ├── ZorbPawn.cpp
+│   │   │   │   ├── ZorbPhysicsComponent.h
+│   │   │   │   ├── ZorbPhysicsComponent.cpp
+│   │   │   │   ├── EnergyOverheatComponent.h
+│   │   │   │   ├── EnergyOverheatComponent.cpp
+│   │   │   │   ├── ZorbInputConfig.h
+│   │   │   │   └── ZorbInputConfig.cpp
+│   │   │   │
+│   │   │   ├── Terrain/
+│   │   │   │   ├── TerrainGenerator.h
+│   │   │   │   ├── TerrainGenerator.cpp
+│   │   │   │   ├── HeightmapLoader.h
+│   │   │   │   ├── HeightmapLoader.cpp
+│   │   │   │   ├── ProceduralTerrainActor.h
+│   │   │   │   └── ProceduralTerrainActor.cpp
+│   │   │   │
+│   │   │   ├── Track/
+│   │   │   │   ├── TrackData.h
+│   │   │   │   ├── TrackData.cpp
+│   │   │   │   ├── TrackAnalyzer.h
+│   │   │   │   ├── TrackAnalyzer.cpp
+│   │   │   │   ├── ObstacleSpawner.h
+│   │   │   │   └── ObstacleSpawner.cpp
+│   │   │   │
+│   │   │   ├── Multiplayer/
+│   │   │   │   ├── ZorbPlayerState.h
+│   │   │   │   ├── ZorbPlayerState.cpp
+│   │   │   │   ├── ZorbPlayerController.h
+│   │   │   │   ├── ZorbPlayerController.cpp
+│   │   │   │   ├── MultiplayerRaceGameMode.h
+│   │   │   │   └── MultiplayerRaceGameMode.cpp
+│   │   │   │
+│   │   │   ├── Modes/
+│   │   │   │   ├── TimeAttackGameMode.h
+│   │   │   │   ├── TimeAttackGameMode.cpp
+│   │   │   │   ├── ScoreGameMode.h
+│   │   │   │   ├── ScoreGameMode.cpp
+│   │   │   │   ├── SurvivalGameMode.h
+│   │   │   │   └── SurvivalGameMode.cpp
+│   │   │   │
+│   │   │   ├── UI/
+│   │   │   │   ├── HUDWidget.h
+│   │   │   │   ├── HUDWidget.cpp
+│   │   │   │   ├── MainMenuWidget.h
+│   │   │   │   └── MainMenuWidget.cpp
+│   │   │   │
+│   │   │   └── Tests/
+│   │   │       ├── Test_EnergyOverheat.cpp
+│   │   │       ├── Test_ZorbPhysics.cpp
+│   │   │       └── Test_TerrainGeneration.cpp
+│   │   │
+│   │   └── ThirdParty/
+│   │       └── (librairies externes si besoin)
+│   │
+│   ├── Content/
+│   │   ├── Blueprints/
+│   │   ├── Materials/
+│   │   ├── Meshes/
+│   │   ├── Textures/
+│   │   ├── UI/
+│   │   ├── VFX/
+│   │   └── Audio/
+│   │
+│   └── Config/
+│       ├── DefaultEngine.ini
+│       ├── DefaultGame.ini
+│       └── DefaultInput.ini
+│
+└── Tools/
+    ├── HeightmapProcessing/
+    │   ├── normalize_heightmap.py
+    │   ├── crop_heightmap.py
+    │   └── generate_preview.py
+    └── README.md
