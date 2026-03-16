@@ -25,6 +25,8 @@ python Tools\HeightmapProcessing\crop_heightmap.py --input Tools\HeightmapProces
 - Garder un format 16-bit grayscale (`PNG I;16`) pour éviter le banding.
 - Ajuster surtout `Z Scale` selon le relief voulu (commencer à 120-220).
 - Si un PNG refuse l'import: convertir en `.r16` puis importer ce fichier (`Width/Height`: 1009 x 1009).
+- Si Unreal demande "Use tiled image path?": répondre `No` pour ces fichiers (ce ne sont pas des tuiles).
+- Option robuste: importer `zorb_test_hills_1009.r16` avec `zorb_test_hills_1009.json` présent dans le même dossier.
 
 ## Ajouter des outils
 - Stocker les nouveaux scripts dans `Tools/`.
