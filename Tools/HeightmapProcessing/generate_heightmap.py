@@ -22,12 +22,33 @@ def _smooth_noise(size: int, rng: np.random.Generator, scale: int) -> np.ndarray
     return np.array(up, dtype=np.float64) / 65535.0
 
 
+def _box_blur(arr: np.ndarray, radius: int, passes: int = 1) -> np.ndarray:
+    if radius <= 0 or passes <= 0:
+        return arr
+
+    out = arr
+    for _ in range(passes):
+        # Horizontal pass
+        padded = np.pad(out, ((0, 0), (radius, radius)), mode="edge")
+        csum = np.cumsum(padded, axis=1)
+        csum = np.pad(csum, ((0, 0), (1, 0)), mode="constant", constant_values=0.0)
+        out = (csum[:, 2 * radius + 1 :] - csum[:, : -(2 * radius + 1)]) / float(2 * radius + 1)
+
+        # Vertical pass
+        padded = np.pad(out, ((radius, radius), (0, 0)), mode="edge")
+        csum = np.cumsum(padded, axis=0)
+        csum = np.pad(csum, ((1, 0), (0, 0)), mode="constant", constant_values=0.0)
+        out = (csum[2 * radius + 1 :, :] - csum[: -(2 * radius + 1), :]) / float(2 * radius + 1)
+
+    return out
+
+
 def _fbm(size: int, rng: np.random.Generator) -> np.ndarray:
     layers = [
-        (24, 1.00),
-        (12, 0.70),
-        (6, 0.45),
-        (3, 0.20),
+        (48, 1.00),
+        (24, 0.65),
+        (12, 0.30),
+        (8, 0.18),
     ]
     acc = np.zeros((size, size), dtype=np.float64)
     total_w = 0.0
@@ -54,27 +75,31 @@ def build_terrain(size: int, seed: int) -> np.ndarray:
     # Add broad mountain/valley structures.
     macro = np.zeros_like(terrain)
     features = [
-        (0.25, 0.30, 0.16, +1.00),
-        (0.70, 0.25, 0.18, +0.85),
-        (0.55, 0.70, 0.22, -0.95),
-        (0.20, 0.75, 0.12, +0.60),
-        (0.82, 0.62, 0.10, -0.55),
+        (0.24, 0.28, 0.22, +0.70),
+        (0.72, 0.25, 0.24, +0.55),
+        (0.52, 0.70, 0.28, -0.60),
+        (0.20, 0.76, 0.18, +0.35),
+        (0.84, 0.60, 0.16, -0.30),
     ]
     for cx, cy, sigma, amp in features:
         macro += _gaussian_hill(xx, yy, cx, cy, sigma, amp)
 
-    # Add a directional ridge to create speed lines for rolling gameplay.
-    ridge = np.sin((xx * 9.0 + yy * 5.5) * np.pi) * 0.10
+    # Add smooth directional undulation to create rolling lanes.
+    ridge = np.sin((xx * 4.0 + yy * 2.7) * np.pi) * 0.045
 
-    # Add fine bumps for micro-variation.
-    bumps = (_smooth_noise(size, rng, 2) - 0.5) * 0.10
+    # Add mild micro-variation only.
+    bumps = (_smooth_noise(size, rng, 16) - 0.5) * 0.02
 
-    terrain = 0.55 * terrain + 0.35 * macro + ridge + bumps
+    terrain = 0.58 * terrain + 0.34 * macro + ridge + bumps
 
     # Carve a gentle bowl near center to keep gameplay area readable.
     cx, cy = 0.5, 0.5
     center_dist = np.sqrt((xx - cx) ** 2 + (yy - cy) ** 2)
     terrain -= np.clip(0.20 - center_dist, 0.0, 0.20) * 0.6
+
+    # Global smoothing to remove spikes and make rolling gameplay readable.
+    blur_radius = max(2, size // 150)
+    terrain = _box_blur(terrain, radius=blur_radius, passes=2)
 
     # Normalize and add shoreline-like flattening near outer bounds.
     terrain = (terrain - terrain.min()) / max(1e-8, terrain.max() - terrain.min())
