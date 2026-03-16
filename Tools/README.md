@@ -16,6 +16,7 @@ python Tools\HeightmapProcessing\crop_heightmap.py --input Tools\HeightmapProces
 - `normalize_heightmap.py`: normalise une heightmap sur toute la dynamique 16-bit.
 - `crop_heightmap.py`: crop centré et resize carré (ex: 1009, 2017, 2049).
 - `generate_preview.py`: crée une preview couleur lisible pour contrôle visuel.
+- `export_r16.py`: convertit une image heightmap 16-bit en `.r16` brut (format Unreal très fiable).
 
 ### Import Unreal (Landscape)
 - Dans Unreal: `Modes > Landscape > Import from File`.
@@ -23,6 +24,7 @@ python Tools\HeightmapProcessing\crop_heightmap.py --input Tools\HeightmapProces
 - Pour plus grand relief: générer ensuite une version `2049` avec le script.
 - Garder un format 16-bit grayscale (`PNG I;16`) pour éviter le banding.
 - Ajuster surtout `Z Scale` selon le relief voulu (commencer à 120-220).
+- Si un PNG refuse l'import: convertir en `.r16` puis importer ce fichier (`Width/Height`: 1009 x 1009).
 
 ## Ajouter des outils
 - Stocker les nouveaux scripts dans `Tools/`.
