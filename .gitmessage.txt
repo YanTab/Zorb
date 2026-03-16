@@ -1,0 +1,18 @@
+# Format: type(scope): description
+#
+# Types: feat, fix, docs, refactor, perf, test, build, ci, chore
+# Scope examples: zorbpawn, hud, tuning, input, docs
+#
+# Example:
+# feat(tuning): expose overheat thresholds in project settings
+
+type(scope): description
+
+# Why:
+# -
+
+# What:
+# -
+
+# Notes/Test:
+# -
