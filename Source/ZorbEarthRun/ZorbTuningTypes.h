@@ -38,6 +38,14 @@ struct FZorbMovementTuning
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (ClampMin = "0.0", ClampMax = "200000.0"))
     float LateralGripForce = 16000.f;
 
+    // Centripetal turning rate (rad/s equivalent). Higher = tighter constant-radius turns at any speed.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (ClampMin = "0.1", ClampMax = "10.0"))
+    float TurnRateScale = 1.5f;
+
+    // Max centripetal acceleration (cm/s²) applied when steering. Caps sharpness at very high speeds.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (ClampMin = "100.0", ClampMax = "20000.0"))
+    float MaxSteeringAcceleration = 3200.f;
+
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (ClampMin = "0.1", ClampMax = "30.0"))
     float DirectionResponse = 7.5f;
 

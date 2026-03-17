@@ -234,52 +234,53 @@ void AZorbPawn::Tick(float DeltaTime)
             {
                 DesiredDir.Normalize();
 
-                FVector VelocityXY = CollisionComponent->GetPhysicsLinearVelocity();
-                VelocityXY.Z = 0.f;
-
-                const float CurrentPlanarSpeed = VelocityXY.Size();
-                const float InputTargetSpeed = InputMagnitude * MovementTuning.MaxSpeed;
-                const float DesiredPlanarSpeed = FMath::Max(CurrentPlanarSpeed, InputTargetSpeed);
-                const FVector DesiredVelocity = DesiredDir * DesiredPlanarSpeed;
-                FVector DesiredAcceleration = (DesiredVelocity - VelocityXY) * MovementTuning.VelocityResponse;
-
-                if (bBoostActive)
-                {
-                    DesiredAcceleration *= MovementTuning.BoostAccelerationMultiplier;
-                }
-
-                const float MaxAccel = bBoostActive
-                    ? (MovementTuning.MaxDriveAcceleration * MovementTuning.BoostAccelerationMultiplier)
-                    : MovementTuning.MaxDriveAcceleration;
-                DesiredAcceleration = DesiredAcceleration.GetClampedToMaxSize(MaxAccel);
-                CollisionComponent->AddForce(DesiredAcceleration * CollisionComponent->GetMass(), NAME_None, false);
-            }
-        }
-
-        if (InputMagnitude > 0.05f && MovementTuning.LateralGripForce > 0.f)
-        {
-            FVector CamForward = SpringArmComponent ? SpringArmComponent->GetForwardVector() : GetActorForwardVector();
-            FVector CamRight = SpringArmComponent ? SpringArmComponent->GetRightVector() : GetActorRightVector();
-            CamForward.Z = 0.f;
-            CamRight.Z = 0.f;
-            CamForward.Normalize();
-            CamRight.Normalize();
-
-            FVector DesiredDir = (CamForward * SmoothedForwardInputValue) + (CamRight * SmoothedRightInputValue);
-            if (!DesiredDir.IsNearlyZero())
-            {
-                DesiredDir.Normalize();
                 FVector VelXY = Velocity;
                 VelXY.Z = 0.f;
-                const FVector ForwardVel = DesiredDir * FVector::DotProduct(VelXY, DesiredDir);
-                const FVector LateralVel = VelXY - ForwardVel;
+                const float CurrentPlanarSpeed = VelXY.Size();
+                const FVector CurrentDir = (CurrentPlanarSpeed > 10.f) ? (VelXY / CurrentPlanarSpeed) : DesiredDir;
+                const float DotFwd = FVector::DotProduct(CurrentDir, DesiredDir);
 
-                // Clamp lateral correction so repeated left/right inputs do not inject unstable forces.
-                const float ZorbMass = FMath::Max(CollisionComponent->GetMass(), 1.f);
-                FVector LateralCorrectionAccel = (-LateralVel * MovementTuning.LateralGripForce) / ZorbMass;
-                const float MaxGripAccel = MovementTuning.MaxDriveAcceleration * 1.5f;
-                LateralCorrectionAccel = LateralCorrectionAccel.GetClampedToMaxSize(MaxGripAccel);
-                CollisionComponent->AddForce(LateralCorrectionAccel * ZorbMass, NAME_None, false);
+                // Longitudinal: build speed along current heading. Never brakes, so speed is preserved through turns.
+                FVector LongitudinalAccel = FVector::ZeroVector;
+                const float TargetSpeed = InputMagnitude * MovementTuning.MaxSpeed;
+                if (CurrentPlanarSpeed < TargetSpeed)
+                {
+                    const float Gain = FMath::Min((TargetSpeed - CurrentPlanarSpeed) * MovementTuning.VelocityResponse,
+                                                   MovementTuning.MaxDriveAcceleration);
+                    LongitudinalAccel = CurrentDir * Gain;
+                }
+
+                // Centripetal: rotate velocity toward DesiredDir without shedding speed.
+                // Force scales with current speed → constant turn radius regardless of speed.
+                const FVector CentripetalRaw = DesiredDir - CurrentDir * DotFwd;
+                const float SinAngle = CentripetalRaw.Size();
+                FVector CentripetalAccel = FVector::ZeroVector;
+                if (SinAngle > 0.001f && CurrentPlanarSpeed > 10.f)
+                {
+                    const float CentripetalMag = FMath::Min(
+                        CurrentPlanarSpeed * MovementTuning.TurnRateScale,
+                        MovementTuning.MaxSteeringAcceleration);
+                    CentripetalAccel = (CentripetalRaw / SinAngle) * CentripetalMag;
+                }
+
+                // Lateral grip: drift correction only when heading is close to desired dir (< ~45°).
+                // Disabled during active turning to avoid cancelling the centripetal force.
+                FVector LateralGripAccel = FVector::ZeroVector;
+                if (DotFwd > 0.7f && MovementTuning.LateralGripForce > 0.f)
+                {
+                    const float ZorbMass = FMath::Max(CollisionComponent->GetMass(), 1.f);
+                    const FVector ForwardVel = DesiredDir * FVector::DotProduct(VelXY, DesiredDir);
+                    const FVector LateralVel = VelXY - ForwardVel;
+                    FVector RawGrip = (-LateralVel * MovementTuning.LateralGripForce) / ZorbMass;
+                    LateralGripAccel = RawGrip.GetClampedToMaxSize(MovementTuning.MaxDriveAcceleration * 1.5f);
+                }
+
+                FVector TotalAccel = LongitudinalAccel + CentripetalAccel + LateralGripAccel;
+                if (bBoostActive)
+                {
+                    TotalAccel *= MovementTuning.BoostAccelerationMultiplier;
+                }
+                CollisionComponent->AddForce(TotalAccel * CollisionComponent->GetMass(), NAME_None, false);
             }
         }
     }
