@@ -21,6 +21,7 @@ AZorbPawn::AZorbPawn()
     RightInputValue = 0.f;
     SmoothedForwardInputValue = 0.f;
     SmoothedRightInputValue = 0.f;
+    SteeringRightInputValue = 0.f;
     OverheatLockRemaining = 0.f;
     CriticalFlashRemaining = 0.f;
     HeatHaloCurrentOpacity = 0.f;
@@ -160,6 +161,21 @@ void AZorbPawn::Tick(float DeltaTime)
         SmoothedForwardInputValue = FMath::FInterpTo(SmoothedForwardInputValue, ForwardInputValue, DeltaTime, MovementTuning.DirectionResponse);
         SmoothedRightInputValue = FMath::FInterpTo(SmoothedRightInputValue, RightInputValue, DeltaTime, MovementTuning.DirectionResponse);
 
+        float SteeringInterpSpeed = MovementTuning.SteeringInputReleaseSpeed;
+        const bool bSteeringSignChanged =
+            !FMath::IsNearlyZero(SteeringRightInputValue, KINDA_SMALL_NUMBER) &&
+            !FMath::IsNearlyZero(RightInputValue, KINDA_SMALL_NUMBER) &&
+            FMath::Sign(SteeringRightInputValue) != FMath::Sign(RightInputValue);
+        if (bSteeringSignChanged)
+        {
+            SteeringInterpSpeed = MovementTuning.SteeringInputReverseSpeed;
+        }
+        else if (FMath::Abs(RightInputValue) > FMath::Abs(SteeringRightInputValue))
+        {
+            SteeringInterpSpeed = MovementTuning.SteeringInputRiseSpeed;
+        }
+        SteeringRightInputValue = FMath::FInterpTo(SteeringRightInputValue, RightInputValue, DeltaTime, SteeringInterpSpeed);
+
         const float RawInputMagnitude = FMath::Clamp(
             FMath::Sqrt((SmoothedForwardInputValue * SmoothedForwardInputValue) + (SmoothedRightInputValue * SmoothedRightInputValue)),
             0.f,
@@ -229,7 +245,7 @@ void AZorbPawn::Tick(float DeltaTime)
             CamForward.Normalize();
             CamRight.Normalize();
 
-            FVector DesiredDir = (CamForward * SmoothedForwardInputValue) + (CamRight * SmoothedRightInputValue);
+            FVector DesiredDir = (CamForward * SmoothedForwardInputValue) + (CamRight * SteeringRightInputValue);
             if (!DesiredDir.IsNearlyZero())
             {
                 DesiredDir.Normalize();
@@ -250,29 +266,33 @@ void AZorbPawn::Tick(float DeltaTime)
                     LongitudinalAccel = CurrentDir * Gain;
                 }
 
-                // Centripetal: rotate velocity toward DesiredDir without shedding speed.
-                // Force scales with current speed → constant turn radius regardless of speed.
+                // Centripetal + lateral grip: only when grounded (no air-steering).
                 const FVector CentripetalRaw = DesiredDir - CurrentDir * DotFwd;
                 const float SinAngle = CentripetalRaw.Size();
                 FVector CentripetalAccel = FVector::ZeroVector;
-                if (SinAngle > 0.001f && CurrentPlanarSpeed > 10.f)
-                {
-                    const float CentripetalMag = FMath::Min(
-                        CurrentPlanarSpeed * MovementTuning.TurnRateScale,
-                        MovementTuning.MaxSteeringAcceleration);
-                    CentripetalAccel = (CentripetalRaw / SinAngle) * CentripetalMag;
-                }
-
-                // Lateral grip: drift correction only when heading is close to desired dir (< ~45°).
-                // Disabled during active turning to avoid cancelling the centripetal force.
                 FVector LateralGripAccel = FVector::ZeroVector;
-                if (DotFwd > 0.7f && MovementTuning.LateralGripForce > 0.f)
+                if (bGroundedForMovement)
                 {
-                    const float ZorbMass = FMath::Max(CollisionComponent->GetMass(), 1.f);
-                    const FVector ForwardVel = DesiredDir * FVector::DotProduct(VelXY, DesiredDir);
-                    const FVector LateralVel = VelXY - ForwardVel;
-                    FVector RawGrip = (-LateralVel * MovementTuning.LateralGripForce) / ZorbMass;
-                    LateralGripAccel = RawGrip.GetClampedToMaxSize(MovementTuning.MaxDriveAcceleration * 1.5f);
+                    // Centripetal: rotate velocity toward DesiredDir without shedding speed.
+                    // Force scales with current speed → constant turn radius regardless of speed.
+                    if (SinAngle > 0.001f && CurrentPlanarSpeed > 10.f)
+                    {
+                        const float CentripetalMag = FMath::Min(
+                            CurrentPlanarSpeed * MovementTuning.TurnRateScale,
+                            MovementTuning.MaxSteeringAcceleration);
+                        CentripetalAccel = (CentripetalRaw / SinAngle) * CentripetalMag;
+                    }
+
+                    // Lateral grip: drift correction only when heading is close to desired dir (< ~45°).
+                    // Disabled during active turning to avoid cancelling the centripetal force.
+                    if (DotFwd > 0.7f && MovementTuning.LateralGripForce > 0.f)
+                    {
+                        const float ZorbMass = FMath::Max(CollisionComponent->GetMass(), 1.f);
+                        const FVector ForwardVel = DesiredDir * FVector::DotProduct(VelXY, DesiredDir);
+                        const FVector LateralVel = VelXY - ForwardVel;
+                        FVector RawGrip = (-LateralVel * MovementTuning.LateralGripForce) / ZorbMass;
+                        LateralGripAccel = RawGrip.GetClampedToMaxSize(MovementTuning.MaxDriveAcceleration * 1.5f);
+                    }
                 }
 
                 FVector TotalAccel = LongitudinalAccel + CentripetalAccel + LateralGripAccel;
@@ -392,6 +412,7 @@ void AZorbPawn::RespawnToCheckpoint()
     CollisionComponent->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
     SmoothedForwardInputValue = 0.f;
     SmoothedRightInputValue = 0.f;
+    SteeringRightInputValue = 0.f;
     bBoostRequested = false;
     bBoostActive = false;
 

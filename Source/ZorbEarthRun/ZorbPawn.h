@@ -78,6 +78,7 @@ private:
     float RightInputValue;
     float SmoothedForwardInputValue;
     float SmoothedRightInputValue;
+    float SteeringRightInputValue;
     float OverheatLockRemaining;
     float CriticalFlashRemaining;
     float HeatHaloCurrentOpacity;
