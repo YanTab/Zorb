@@ -84,5 +84,8 @@ private:
     bool bBoostRequested;
     bool bBoostActive;
     FRotator DesiredCameraRotation;
+    float CameraGroundOffsetZ;
+    float FrozenAirbornePitch;
+    bool bHasFrozenAirbornePitch;
     void UpdateCameraRotation(float DeltaTime);
 };
