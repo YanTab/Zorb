@@ -27,6 +27,7 @@
 - Création du pipeline `Tools/HeightmapProcessing`.
 - Génération de heightmaps de test et fallback `.r16` pour import Unreal.
 - Validation pratique : une map perso est finalement utilisée pour les vrais tests.
+- Référence import Villard confirmée : `Content/Textures/HeightMaps/Villard_1K_HeightMap.png`, résolution 1009, scale d'import Unreal `100 x 100 x 50`.
 
 ### Caméra
 - La première version “caméra derrière la boule” a été validée.

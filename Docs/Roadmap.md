@@ -25,7 +25,7 @@ ROADMAP DÉTAILLÉE — “ZORB EARTH RUN” (v1.0)
 
 ### En cours: TUNING PHASE 1 (conditions réelles sur map personnalisée)
 **Objectif** : affiner les paramètres Movement/Energy/Feedback sur terrain réel.
-**Map test**: map perso (Scale 200 x 200 x 100).
+**Map test**: `Villard` (heightmap source: `Content/Textures/HeightMaps/Villard_1K_HeightMap.png`, resolution 1009, import scale 100 x 100 x 50).
 **État validé (2026-03-17, Villard)**:
 - Caméra validée pour le prototype (base stable et lisible sur Villard).
 - Énergie validée sur règle au sol (gain/perte uniquement au contact du sol).
