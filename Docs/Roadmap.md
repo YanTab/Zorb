@@ -26,6 +26,11 @@ ROADMAP DÉTAILLÉE — “ZORB EARTH RUN” (v1.0)
 ### En cours: TUNING PHASE 1 (conditions réelles sur map personnalisée)
 **Objectif** : affiner les paramètres Movement/Energy/Feedback sur terrain réel.
 **Map test**: map perso (Scale 200 x 200 x 100).
+**État validé (2026-03-17, Villard)**:
+- Caméra validée pour le prototype (base stable et lisible sur Villard).
+- Énergie validée sur règle au sol (gain/perte uniquement au contact du sol).
+- Stabilité mouvement validée (plus de tremblement critique ni traversée du landscape sur changements de direction répétés).
+- Vitesse baseline validée sur map sans obstacles; retuning vitesse reporté après intégration obstacles/checkpoints/zones de danger.
 **Paramètres à valider** :
 1. **Movement** : MaxSpeed, DirectionResponse, LateralGripForce (arcade fluide vs technique exigeante).
 2. **Energy** : EnergyGainRate/DrainRate/HeatGainRate comparés aux temps de jeu réel (session type).

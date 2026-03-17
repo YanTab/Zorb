@@ -191,3 +191,22 @@ Compatibilité / héritage (à garder temporairement pour éviter de casser les 
 ### État final de cette passe
 - Build OK après correction des redéfinitions dans `ZorbTuningTypes.h` puis `ZorbPawn.h`.
 - La base technique est désormais propre pour une itération de tuning sans refactor structurel immédiat.
+
+## Addendum (Tuning Gameplay) — Validation étape Movement
+
+### Correctifs validés
+- Règle énergie corrigée: gain en roue libre sans input, consommation avec input.
+- Règle énergie au sol appliquée: gain/perte uniquement lorsque le Zorb est en contact avec le terrain.
+- HUD debug temporaire ajouté: indicateur de pente en pourcentage (`Slope`) pour corréler pente et accélération.
+- Correctif stabilité physique validé: plus de tremblement critique ni de traversée du landscape sur alternances directionnelles rapides.
+- Suppression du frein moteur artificiel à la relâche input: la roue libre conserve mieux l’inertie.
+
+### Décision produit
+- La vitesse actuelle est jugée suffisante pour la map de test sans obstacles.
+- Le fine tuning vitesse sera repris après implémentation des obstacles, checkpoints et zones de danger.
+
+### Prochaine reprise
+- Continuer le tuning Movement sur Villard en contexte gameplay enrichi (risque réel de trajectoire), puis réévaluer:
+   - `MaxSpeed`
+   - `LateralGripForce`
+   - `DirectionResponse`

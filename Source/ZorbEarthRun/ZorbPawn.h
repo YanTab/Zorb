@@ -30,6 +30,8 @@ public:
     int32 GetOverheatLevel() const;
     bool IsBoosting() const;
     float GetCriticalFlashAlpha() const;
+    float GetGroundSlopePercent() const;
+    bool IsGrounded() const;
 
 private:
     void RespawnToCheckpoint();

@@ -47,6 +47,7 @@ AZorbPawn::AZorbPawn()
     CollisionComponent->SetCollisionProfileName(TEXT("Pawn"));
     CollisionComponent->SetSimulatePhysics(true);
     CollisionComponent->SetEnableGravity(true);
+    CollisionComponent->SetUseCCD(true);
     CollisionComponent->SetLinearDamping(MovementTuning.DriveLinearDamping);
     CollisionComponent->SetAngularDamping(0.2f);
     CollisionComponent->SetMassOverrideInKg(NAME_None, 80.f);
@@ -164,10 +165,40 @@ void AZorbPawn::Tick(float DeltaTime)
             0.f,
             1.f);
 
+        const float ImmediateInputMagnitude = FMath::Clamp(
+            FMath::Sqrt((ForwardInputValue * ForwardInputValue) + (RightInputValue * RightInputValue)),
+            0.f,
+            1.f);
+
         const float InputMagnitude = (OverheatLockRemaining > 0.f) ? 0.f : RawInputMagnitude;
         bBoostActive = bBoostRequested && OverheatLockRemaining <= 0.f && CurrentEnergy >= EnergyTuning.MinEnergyToBoost;
 
-        CollisionComponent->SetLinearDamping(FMath::Lerp(MovementTuning.IdleLinearDamping, MovementTuning.DriveLinearDamping, InputMagnitude));
+        bool bGroundedForMovement = false;
+        FVector GroundNormal = FVector::UpVector;
+        if (UWorld* World = GetWorld())
+        {
+            FHitResult GroundHit;
+            FCollisionQueryParams QueryParams;
+            QueryParams.AddIgnoredActor(this);
+
+            const FVector BallPos = CollisionComponent->GetComponentLocation();
+            const float GroundProbeLength = CollisionComponent->GetScaledSphereRadius() + 35.f;
+            const FVector GroundStart = BallPos;
+            const FVector GroundEnd = GroundStart - FVector(0.f, 0.f, GroundProbeLength);
+            bGroundedForMovement = World->LineTraceSingleByChannel(GroundHit, GroundStart, GroundEnd, ECC_WorldStatic, QueryParams) && GroundHit.bBlockingHit;
+            if (bGroundedForMovement)
+            {
+                GroundNormal = GroundHit.ImpactNormal.GetSafeNormal();
+            }
+        }
+
+        float TargetLinearDamping = FMath::Lerp(MovementTuning.IdleLinearDamping, MovementTuning.DriveLinearDamping, InputMagnitude);
+        const float SpeedForFreeRoll = CollisionComponent->GetPhysicsLinearVelocity().Size();
+        if (ImmediateInputMagnitude <= 0.05f && bGroundedForMovement && SpeedForFreeRoll > 150.f)
+        {
+            TargetLinearDamping = FMath::Min(TargetLinearDamping, MovementTuning.FreeRollLinearDamping);
+        }
+        CollisionComponent->SetLinearDamping(TargetLinearDamping);
 
         FVector Velocity = CollisionComponent->GetPhysicsLinearVelocity();
         const float Speed = Velocity.Size();
@@ -175,6 +206,18 @@ void AZorbPawn::Tick(float DeltaTime)
         {
             const FVector OverSpeedBrake = -Velocity.GetSafeNormal() * ((Speed - MovementTuning.MaxSpeed) * 1200.f);
             CollisionComponent->AddForce(OverSpeedBrake, NAME_None, false);
+        }
+
+        if (InputMagnitude <= 0.05f && bGroundedForMovement && MovementTuning.DownhillGravityAssist > 0.f)
+        {
+            const FVector DownhillVector = FVector::VectorPlaneProject(FVector::DownVector, GroundNormal);
+            const float SlopeAmount = DownhillVector.Size();
+            if (SlopeAmount > MovementTuning.DownhillAssistMinSlope)
+            {
+                const FVector DownhillDir = DownhillVector / SlopeAmount;
+                const float AssistAccel = MovementTuning.DownhillGravityAssist * SlopeAmount;
+                CollisionComponent->AddForce(DownhillDir * (AssistAccel * CollisionComponent->GetMass()), NAME_None, false);
+            }
         }
 
         if (InputMagnitude > 0.05f)
@@ -194,7 +237,10 @@ void AZorbPawn::Tick(float DeltaTime)
                 FVector VelocityXY = CollisionComponent->GetPhysicsLinearVelocity();
                 VelocityXY.Z = 0.f;
 
-                const FVector DesiredVelocity = DesiredDir * (InputMagnitude * MovementTuning.MaxSpeed);
+                const float CurrentPlanarSpeed = VelocityXY.Size();
+                const float InputTargetSpeed = InputMagnitude * MovementTuning.MaxSpeed;
+                const float DesiredPlanarSpeed = FMath::Max(CurrentPlanarSpeed, InputTargetSpeed);
+                const FVector DesiredVelocity = DesiredDir * DesiredPlanarSpeed;
                 FVector DesiredAcceleration = (DesiredVelocity - VelocityXY) * MovementTuning.VelocityResponse;
 
                 if (bBoostActive)
@@ -227,7 +273,13 @@ void AZorbPawn::Tick(float DeltaTime)
                 VelXY.Z = 0.f;
                 const FVector ForwardVel = DesiredDir * FVector::DotProduct(VelXY, DesiredDir);
                 const FVector LateralVel = VelXY - ForwardVel;
-                CollisionComponent->AddForce(-LateralVel * MovementTuning.LateralGripForce, NAME_None, false);
+
+                // Clamp lateral correction so repeated left/right inputs do not inject unstable forces.
+                const float ZorbMass = FMath::Max(CollisionComponent->GetMass(), 1.f);
+                FVector LateralCorrectionAccel = (-LateralVel * MovementTuning.LateralGripForce) / ZorbMass;
+                const float MaxGripAccel = MovementTuning.MaxDriveAcceleration * 1.5f;
+                LateralCorrectionAccel = LateralCorrectionAccel.GetClampedToMaxSize(MaxGripAccel);
+                CollisionComponent->AddForce(LateralCorrectionAccel * ZorbMass, NAME_None, false);
             }
         }
     }
@@ -635,4 +687,61 @@ float AZorbPawn::GetCriticalFlashAlpha() const
     }
 
     return FMath::Clamp(CriticalFlashRemaining / EnergyTuning.CriticalFlashDuration, 0.f, 1.f);
+}
+
+bool AZorbPawn::IsGrounded() const
+{
+    if (!CollisionComponent)
+    {
+        return false;
+    }
+
+    UWorld* World = GetWorld();
+    if (!World)
+    {
+        return false;
+    }
+
+    FHitResult GroundHit;
+    FCollisionQueryParams QueryParams;
+    QueryParams.AddIgnoredActor(this);
+
+    const FVector BallPos = CollisionComponent->GetComponentLocation();
+    const float GroundProbeLength = CollisionComponent->GetScaledSphereRadius() + 25.f;
+    const FVector GroundStart = BallPos;
+    const FVector GroundEnd = GroundStart - FVector(0.f, 0.f, GroundProbeLength);
+    return World->LineTraceSingleByChannel(GroundHit, GroundStart, GroundEnd, ECC_WorldStatic, QueryParams) && GroundHit.bBlockingHit;
+}
+
+float AZorbPawn::GetGroundSlopePercent() const
+{
+    if (!CollisionComponent)
+    {
+        return 0.f;
+    }
+
+    UWorld* World = GetWorld();
+    if (!World)
+    {
+        return 0.f;
+    }
+
+    FHitResult GroundHit;
+    FCollisionQueryParams QueryParams;
+    QueryParams.AddIgnoredActor(this);
+
+    const FVector BallPos = CollisionComponent->GetComponentLocation();
+    const float GroundProbeLength = CollisionComponent->GetScaledSphereRadius() + 25.f;
+    const FVector GroundStart = BallPos;
+    const FVector GroundEnd = GroundStart - FVector(0.f, 0.f, GroundProbeLength);
+
+    if (!(World->LineTraceSingleByChannel(GroundHit, GroundStart, GroundEnd, ECC_WorldStatic, QueryParams) && GroundHit.bBlockingHit))
+    {
+        return 0.f;
+    }
+
+    const FVector GroundNormal = GroundHit.ImpactNormal.GetSafeNormal();
+    const float UpDot = FMath::Clamp(FVector::DotProduct(GroundNormal, FVector::UpVector), 0.01f, 1.f);
+    const float TangentMag = FMath::Sqrt(FMath::Max(0.f, 1.f - (UpDot * UpDot)));
+    return (TangentMag / UpDot) * 100.f;
 }

@@ -28,10 +28,15 @@ void AZorbHUD::DrawHUD()
     const int32 OverheatLevel = ZorbPawn ? ZorbPawn->GetOverheatLevel() : 0;
     const bool bBoosting = ZorbPawn ? ZorbPawn->IsBoosting() : false;
     const float CriticalFlashAlpha = ZorbPawn ? ZorbPawn->GetCriticalFlashAlpha() : 0.f;
+    const bool bGrounded = ZorbPawn ? ZorbPawn->IsGrounded() : false;
+    const float SlopePct = ZorbPawn ? ZorbPawn->GetGroundSlopePercent() : 0.f;
     const FString EnergyText = FString::Printf(TEXT("Energy: %3.0f%%"), EnergyPct * 100.f);
     const FString HeatText = FString::Printf(TEXT("Heat: %3.0f%%"), HeatPct * 100.f);
     const FString LevelText = FString::Printf(TEXT("Overheat Level: %d/3"), OverheatLevel);
     const FString BoostText = FString::Printf(TEXT("Boost: %s"), bBoosting ? TEXT("ACTIVE") : TEXT("OFF"));
+    const FString SlopeText = bGrounded
+        ? FString::Printf(TEXT("Slope: %.1f%%"), SlopePct)
+        : FString(TEXT("Slope: AIR"));
 
     const FVector2D Origin(50.f, 50.f);
     UFont* Font = GEngine ? GEngine->GetLargeFont() : nullptr;
@@ -43,12 +48,13 @@ void AZorbHUD::DrawHUD()
     DrawText(HeatText, FLinearColor(1.0f, 0.5f, 0.0f, 1.0f), Origin.X, Origin.Y + 125.f, Font, 0.85f, false);
     DrawText(LevelText, OverheatLevel >= 2 ? FLinearColor::Red : FLinearColor::Yellow, Origin.X, Origin.Y + 155.f, Font, 0.85f, false);
     DrawText(BoostText, bBoosting ? FLinearColor::Green : FLinearColor(0.7f, 0.7f, 0.7f, 1.0f), Origin.X, Origin.Y + 185.f, Font, 0.85f, false);
+    DrawText(SlopeText, bGrounded ? FLinearColor(0.6f, 0.9f, 1.0f, 1.0f) : FLinearColor(0.6f, 0.6f, 0.6f, 1.0f), Origin.X, Origin.Y + 215.f, Font, 0.85f, false);
 
     if (CriticalFlashAlpha > 0.f)
     {
         const float OverlayAlpha = 0.55f * CriticalFlashAlpha;
         DrawRect(FLinearColor(1.0f, 0.05f, 0.05f, OverlayAlpha), 0.f, 0.f, Canvas->SizeX, Canvas->SizeY);
-        DrawText(TEXT("OVERHEAT CRITIQUE!"), FLinearColor::White, Origin.X, Origin.Y + 225.f, Font, 1.0f, false);
+        DrawText(TEXT("OVERHEAT CRITIQUE!"), FLinearColor::White, Origin.X, Origin.Y + 255.f, Font, 1.0f, false);
     }
 }
 

@@ -26,6 +26,15 @@ struct FZorbMovementTuning
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (ClampMin = "0.01", ClampMax = "10.0"))
     float IdleLinearDamping = 1.15f;
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|FreeRoll", meta = (ClampMin = "0.0", ClampMax = "5.0"))
+    float FreeRollLinearDamping = 0.05f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|FreeRoll", meta = (ClampMin = "0.0", ClampMax = "2000.0"))
+    float DownhillGravityAssist = 260.f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|FreeRoll", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+    float DownhillAssistMinSlope = 0.03f;
+
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (ClampMin = "0.0", ClampMax = "200000.0"))
     float LateralGripForce = 16000.f;
 
