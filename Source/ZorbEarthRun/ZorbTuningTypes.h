@@ -38,6 +38,15 @@ struct FZorbMovementTuning
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Camera", meta = (ClampMin = "0.1", ClampMax = "10.0"))
     float CameraRotationSpeed = 4.0f;
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Camera", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+    float CameraInputDirectionThreshold = 0.18f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Camera", meta = (ClampMin = "1.0", ClampMax = "6.0"))
+    float CameraInputTurnMultiplier = 1.35f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Camera", meta = (ClampMin = "1.0", ClampMax = "8.0"))
+    float CameraTurnaroundBoostMultiplier = 2.2f;
+
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Camera", meta = (ClampMin = "50.0", ClampMax = "1500.0"))
     float CameraDistance = 400.f;
 
@@ -55,6 +64,55 @@ struct FZorbMovementTuning
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Camera", meta = (ClampMin = "0.0", ClampMax = "1000.0"))
     float CameraMaxGroundOffset = 400.f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Camera|LookAhead", meta = (ClampMin = "0.0", ClampMax = "800.0"))
+    float CameraLookAheadMin = 80.f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Camera|LookAhead", meta = (ClampMin = "0.0", ClampMax = "1200.0"))
+    float CameraLookAheadMax = 360.f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Camera|LookAhead", meta = (ClampMin = "100.0", ClampMax = "10000.0"))
+    float CameraLookAheadSpeedRef = 3200.f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Camera|LookAhead", meta = (ClampMin = "0.1", ClampMax = "30.0"))
+    float CameraLookAheadInterpSpeed = 7.0f;
+
+    // Camera target-follow tuning
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Camera|TargetFollow", meta = (ClampMin = "50.0", ClampMax = "2000.0"))
+    float CameraHorizontalDistance = 600.f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Camera|TargetFollow", meta = (ClampMin = "0.0", ClampMax = "2000.0"))
+    float CameraVerticalOffsetBase = 260.f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Camera|TargetFollow", meta = (ClampMin = "0.1", ClampMax = "30.0"))
+    float CameraPositionSmoothingSpeed = 6.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Camera|TargetFollow", meta = (ClampMin = "0.1", ClampMax = "30.0"))
+    float CameraRotationSmoothingSpeed = 8.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Camera|TargetFollow", meta = (ClampMin = "0.1", ClampMax = "30.0"))
+    float CameraStableInterpBaseLateral = 2.2f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Camera|TargetFollow", meta = (ClampMin = "0.1", ClampMax = "30.0"))
+    float CameraStableInterpBaseForward = 6.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Camera|TargetFollow", meta = (ClampMin = "10.0", ClampMax = "2000.0"))
+    float CameraTurnaroundSpeedThreshold = 200.f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Camera|TargetFollow", meta = (ClampMin = "10.0", ClampMax = "2000.0"))
+    float CameraMaxVerticalStepPerSecond = 300.f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Camera|Collision", meta = (ClampMin = "0.0", ClampMax = "500.0"))
+    float CameraCollisionLiftMax = 140.f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Camera|Collision", meta = (ClampMin = "0.1", ClampMax = "30.0"))
+    float CameraCollisionLiftInterpSpeed = 10.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Camera|Collision", meta = (ClampMin = "0.0", ClampMax = "20.0"))
+    float CameraCollisionFovBoost = 5.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Camera|Collision", meta = (ClampMin = "0.1", ClampMax = "30.0"))
+    float CameraCollisionFovInterpSpeed = 8.0f;
 };
 
 USTRUCT(BlueprintType)

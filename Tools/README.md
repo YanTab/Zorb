@@ -1,5 +1,22 @@
 # Outils du projet Zorb Earth Run
 
+## Session dev-build-test
+- Script principal: `Tools/session_bootstrap.ps1`
+- Batch de lancement: `Tools/session_bootstrap.bat`
+
+### Usage recommande (chaque debut de session)
+```powershell
+Tools\session_bootstrap.bat
+```
+
+### Options utiles
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Tools\session_bootstrap.ps1 -SkipBuild
+powershell -ExecutionPolicy Bypass -File .\Tools\session_bootstrap.ps1 -LaunchEditor
+```
+
+Le bootstrap verifie l'environnement, prepare `.venv`, installe les dependances Python des tools, affiche l'etat Git, et build `ZorbEarthRunEditor` via Unreal Build Tool.
+
 ## HeightmapProcessing
 - Scripts pour normaliser/crop/générer preview des heightmaps.
 

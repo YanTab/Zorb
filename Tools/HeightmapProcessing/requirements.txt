@@ -1,1 +1,2 @@
-﻿numpy\npillow
+﻿numpy
+pillow

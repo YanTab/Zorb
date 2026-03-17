@@ -46,7 +46,7 @@ Write-Host "Environnement Python créé dans .venv et packages installés.";
 
 Write-Host "[3/3] Création des fichiers de configuration nécessaires..."
 if (-Not (Test-Path "Tools\HeightmapProcessing\requirements.txt")) {
-    "numpy\npillow" | Out-File -FilePath "Tools\HeightmapProcessing\requirements.txt" -Encoding UTF8
+    @("numpy", "pillow") | Out-File -FilePath "Tools\HeightmapProcessing\requirements.txt" -Encoding UTF8
     Write-Host "requirements.txt généré.";
 }
 

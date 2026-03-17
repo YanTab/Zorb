@@ -32,6 +32,13 @@ AZorbPawn::AZorbPawn()
     CameraGroundOffsetZ = 0.f;
     FrozenAirbornePitch = -20.f;
     bHasFrozenAirbornePitch = false;
+    CameraPlanarForward = FVector(1.f, 0.f, 0.f);
+    CameraStableTravelDir = FVector(1.f, 0.f, 0.f);
+    CameraReverseIntentHoldTime = 0.f;
+    CameraLookAheadDistance = 0.f;
+    CameraCollisionLiftZ = 0.f;
+    CameraBaseFov = 90.f;
+    CameraTargetFov = 90.f;
 
     AutoPossessPlayer = EAutoReceiveInput::Player0;
 
@@ -108,6 +115,22 @@ void AZorbPawn::BeginPlay()
     FrozenAirbornePitch = MovementTuning.CameraPitchAngle;
     bHasFrozenAirbornePitch = false;
     CameraGroundOffsetZ = 0.f;
+    CameraCollisionLiftZ = 0.f;
+    CameraLookAheadDistance = MovementTuning.CameraLookAheadMin;
+    CameraPlanarForward = GetActorForwardVector();
+    CameraPlanarForward.Z = 0.f;
+    if (!CameraPlanarForward.Normalize())
+    {
+        CameraPlanarForward = FVector(1.f, 0.f, 0.f);
+    }
+    CameraStableTravelDir = CameraPlanarForward;
+    CameraReverseIntentHoldTime = 0.f;
+
+    if (CameraComponent)
+    {
+        CameraBaseFov = CameraComponent->FieldOfView;
+        CameraTargetFov = CameraBaseFov;
+    }
     if (SpringArmComponent)
     {
         SpringArmComponent->SocketOffset = FVector::ZeroVector;
@@ -334,6 +357,20 @@ void AZorbPawn::UpdateEnergyAndHeat(float DeltaTime)
 
     OverheatLockRemaining = FMath::Max(0.f, OverheatLockRemaining - DeltaTime);
 
+    bool bIsGrounded = false;
+    if (UWorld* World = GetWorld())
+    {
+        FHitResult GroundHit;
+        FCollisionQueryParams QueryParams;
+        QueryParams.AddIgnoredActor(this);
+
+        const FVector BallPos = CollisionComponent->GetComponentLocation();
+        const float GroundProbeLength = CollisionComponent->GetScaledSphereRadius() + 25.f;
+        const FVector GroundStart = BallPos;
+        const FVector GroundEnd = GroundStart - FVector(0.f, 0.f, GroundProbeLength);
+        bIsGrounded = World->LineTraceSingleByChannel(GroundHit, GroundStart, GroundEnd, ECC_WorldStatic, QueryParams) && GroundHit.bBlockingHit;
+    }
+
     const float Speed = CollisionComponent->GetPhysicsLinearVelocity().Size();
     const float SpeedFactor = FMath::Clamp(Speed / 2500.f, 0.f, 1.f);
     const float InputFactor = FMath::Clamp(
@@ -341,8 +378,15 @@ void AZorbPawn::UpdateEnergyAndHeat(float DeltaTime)
         0.f,
         1.f);
 
-    const float EnergyDelta = ((EnergyTuning.EnergyGainRate * InputFactor) + (4.f * SpeedFactor) - EnergyTuning.EnergyDrainRate) * DeltaTime;
-    CurrentEnergy = FMath::Clamp(CurrentEnergy + EnergyDelta, 0.f, EnergyTuning.MaxEnergy);
+    // Gameplay rule: gain energy in free roll (no input), spend energy while actively steering.
+    if (bIsGrounded)
+    {
+        const float FreeRollFactor = 1.f - InputFactor;
+        const float EnergyGain = EnergyTuning.EnergyGainRate * FreeRollFactor * SpeedFactor;
+        const float EnergyDrain = EnergyTuning.EnergyDrainRate * InputFactor;
+        const float EnergyDelta = (EnergyGain - EnergyDrain) * DeltaTime;
+        CurrentEnergy = FMath::Clamp(CurrentEnergy + EnergyDelta, 0.f, EnergyTuning.MaxEnergy);
+    }
 
     const bool bActivelyDriving = InputFactor > 0.1f;
     const float HeatDelta = bActivelyDriving
@@ -350,7 +394,7 @@ void AZorbPawn::UpdateEnergyAndHeat(float DeltaTime)
         : -(EnergyTuning.HeatCooldownRate * DeltaTime);
     CurrentHeat = FMath::Clamp(CurrentHeat + HeatDelta, 0.f, EnergyTuning.MaxHeat);
 
-    if (bBoostActive)
+    if (bBoostActive && bIsGrounded)
     {
         const float BoostDrain = EnergyTuning.BoostEnergyDrainRate * DeltaTime;
         const float BoostHeat = EnergyTuning.BoostHeatGainRate * DeltaTime;
@@ -419,115 +463,144 @@ void AZorbPawn::UpdateCameraRotation(float DeltaTime)
         return;
     }
 
-    FVector BallPos = CollisionComponent->GetComponentLocation();
-    FVector Velocity = CollisionComponent->GetPhysicsLinearVelocity();
+    const FVector BallPos = CollisionComponent->GetComponentLocation();
+    const FVector Velocity = CollisionComponent->GetPhysicsLinearVelocity();
     FVector VelocityXY = Velocity;
     VelocityXY.Z = 0.f;
 
-    FRotator TargetRotation = DesiredCameraRotation;
+    // Update pivot and height (updates CameraStableTravelDir and CameraGroundOffsetZ)
+    UpdateCameraPivotAndHeight(DeltaTime, BallPos, VelocityXY);
 
-    FVector ForwardDir = DesiredCameraRotation.Vector();
-    const float VelMag = VelocityXY.Length();
-    if (VelMag > 50.f) // Only update if moving significantly
-    {
-        ForwardDir = VelocityXY.GetSafeNormal();
-        TargetRotation = ForwardDir.Rotation();
-        TargetRotation.Roll = 0.f;
-    }
+    // Compute look-ahead based on planar speed
+    const float VelMag = VelocityXY.Size();
+    const float SpeedAlpha = FMath::Clamp(VelMag / FMath::Max(1.f, MovementTuning.CameraLookAheadSpeedRef), 0.f, 1.f);
+    const float TargetLookAheadDist = FMath::Lerp(MovementTuning.CameraLookAheadMin, MovementTuning.CameraLookAheadMax, SpeedAlpha);
+    CameraLookAheadDistance = FMath::FInterpTo(CameraLookAheadDistance, TargetLookAheadDist, DeltaTime, MovementTuning.CameraLookAheadInterpSpeed);
 
+    // Focus point is the ball plus lookahead in travel direction
+    const FVector FocusPoint = BallPos + (CameraStableTravelDir * CameraLookAheadDistance);
+
+    // Compute desired rotation to look at focus point from CameraPivotWorld
+    const FVector ToFocus = FocusPoint - CameraPivotWorld;
+    FRotator DesiredRot = ToFocus.Rotation();
+
+    // Maintain pitch freeze when airborne
     bool bIsGrounded = false;
     if (UWorld* World = GetWorld())
     {
         FHitResult GroundHit;
         FCollisionQueryParams QueryParams;
         QueryParams.AddIgnoredActor(this);
-
         const float GroundProbeLength = CollisionComponent->GetScaledSphereRadius() + 25.f;
         const FVector GroundStart = BallPos;
         const FVector GroundEnd = GroundStart - FVector(0.f, 0.f, GroundProbeLength);
         bIsGrounded = World->LineTraceSingleByChannel(GroundHit, GroundStart, GroundEnd, ECC_WorldStatic, QueryParams) && GroundHit.bBlockingHit;
     }
 
-    TargetRotation.Pitch = MovementTuning.CameraPitchAngle;
-    if (bIsGrounded)
-    {
-        FrozenAirbornePitch = TargetRotation.Pitch;
-        bHasFrozenAirbornePitch = false;
-    }
-    else
+    if (!bIsGrounded)
     {
         if (!bHasFrozenAirbornePitch)
         {
             FrozenAirbornePitch = DesiredCameraRotation.Pitch;
             bHasFrozenAirbornePitch = true;
         }
-
-        TargetRotation.Pitch = FrozenAirbornePitch;
+        DesiredRot.Pitch = FrozenAirbornePitch;
+    }
+    else
+    {
+        FrozenAirbornePitch = DesiredRot.Pitch;
+        bHasFrozenAirbornePitch = false;
     }
 
-    // Keep pitch in a comfortable range.
-    TargetRotation.Pitch = FMath::Clamp(TargetRotation.Pitch, -60.f, 25.f);
+    // Smooth rotation using RInterpTo (keeps shortest path)
+    DesiredCameraRotation = FMath::RInterpTo(DesiredCameraRotation, DesiredRot, DeltaTime, MovementTuning.CameraRotationSpeed);
 
-    // Smooth interpolation to new rotation.
-    const float BlendAlpha = FMath::Clamp(DeltaTime * MovementTuning.CameraRotationSpeed, 0.f, 1.f);
-    DesiredCameraRotation = FMath::Lerp(DesiredCameraRotation, TargetRotation, BlendAlpha);
-
-    // Apply basic spring-arm settings first.
+    // Apply rotation to spring arm
     SpringArmComponent->SetUsingAbsoluteRotation(true);
-    SpringArmComponent->SetRelativeRotation(DesiredCameraRotation);
-    SpringArmComponent->TargetArmLength = MovementTuning.CameraDistance;
+    SpringArmComponent->SetWorldRotation(DesiredCameraRotation);
 
-    // Keep camera height roughly constant relative to terrain under the camera.
-    if (bIsGrounded)
+    // Enforce constant horizontal distance via TargetArmLength and let spring arm handle collision.
+    SpringArmComponent->TargetArmLength = MovementTuning.CameraHorizontalDistance;
+
+    // Handle collision compression -> lift + FOV compensation (existing behavior)
+    float CollisionCompression = 0.f;
+    if (MovementTuning.CameraHorizontalDistance > KINDA_SMALL_NUMBER)
     {
-        if (UWorld* World = GetWorld())
+        const float CurrentArmLength = (CameraComponent->GetComponentLocation() - SpringArmComponent->GetComponentLocation()).Size();
+        CollisionCompression = 1.f - FMath::Clamp(CurrentArmLength / MovementTuning.CameraHorizontalDistance, 0.f, 1.f);
+    }
+
+    const float TargetCollisionLift = CollisionCompression * MovementTuning.CameraCollisionLiftMax;
+    CameraCollisionLiftZ = FMath::FInterpTo(CameraCollisionLiftZ, TargetCollisionLift, DeltaTime, MovementTuning.CameraCollisionLiftInterpSpeed);
+    SpringArmComponent->SocketOffset = FVector(0.f, 0.f, CameraGroundOffsetZ + CameraCollisionLiftZ);
+
+    const float DesiredFov = CameraBaseFov + (CollisionCompression * MovementTuning.CameraCollisionFovBoost);
+    CameraTargetFov = FMath::FInterpTo(CameraTargetFov, DesiredFov, DeltaTime, MovementTuning.CameraCollisionFovInterpSpeed);
+    CameraComponent->SetFieldOfView(CameraTargetFov);
+}
+
+void AZorbPawn::UpdateCameraPivotAndHeight(float DeltaTime, const FVector& BallPos, const FVector& VelocityXY)
+{
+    // Compute safe planar travel direction (with fallback)
+    const FVector TravelDir = ComputeSafePlanarDirection(VelocityXY);
+
+    // Smooth travel direction to avoid jitter
+    const bool bPureLateralInput = FMath::Abs(SmoothedRightInputValue) > MovementTuning.CameraInputDirectionThreshold && FMath::Abs(SmoothedForwardInputValue) <= MovementTuning.CameraInputDirectionThreshold;
+    const float StableDirInterpBase = bPureLateralInput ? MovementTuning.CameraStableInterpBaseLateral : MovementTuning.CameraStableInterpBaseForward;
+    CameraStableTravelDir = FMath::VInterpNormalRotationTo(CameraStableTravelDir, TravelDir, DeltaTime, StableDirInterpBase * MovementTuning.CameraRotationSpeed);
+    if (!CameraStableTravelDir.Normalize())
+    {
+        CameraStableTravelDir = TravelDir;
+    }
+
+    // Desired pivot position (behind the ball) and base vertical offset
+    const FVector DesiredPivot = BallPos - (CameraStableTravelDir * MovementTuning.CameraHorizontalDistance) + FVector(0.f, 0.f, MovementTuning.CameraVerticalOffsetBase + CameraGroundOffsetZ);
+
+    // Smooth pivot world position
+    CameraPivotWorld = FMath::VInterpTo(CameraPivotWorld, DesiredPivot, DeltaTime, MovementTuning.CameraPositionSmoothingSpeed);
+
+    // Ground probe under the pivot to maintain clearance
+    if (UWorld* World = GetWorld())
+    {
+        FHitResult Hit;
+        FCollisionQueryParams QueryParams;
+        QueryParams.AddIgnoredActor(this);
+
+        const FVector TraceStart = CameraPivotWorld + FVector(0.f, 0.f, 60.f);
+        const FVector TraceEnd = CameraPivotWorld - FVector(0.f, 0.f, MovementTuning.CameraGroundTraceLength);
+
+        if (World->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECC_WorldStatic, QueryParams) && Hit.bBlockingHit)
         {
-            const FVector CameraPos = CameraComponent->GetComponentLocation();
-            const FVector TraceStart = CameraPos + FVector(0.f, 0.f, 60.f);
-            const FVector TraceEnd = CameraPos - FVector(0.f, 0.f, MovementTuning.CameraGroundTraceLength);
+            const float CurrentClearance = CameraPivotWorld.Z - Hit.ImpactPoint.Z;
+            const float ClearanceError = MovementTuning.CameraGroundClearance - CurrentClearance;
+            const float TargetOffset = FMath::Clamp(ClearanceError, -MovementTuning.CameraMaxGroundOffset, MovementTuning.CameraMaxGroundOffset);
 
-            FHitResult CameraGroundHit;
-            FCollisionQueryParams QueryParams;
-            QueryParams.AddIgnoredActor(this);
+            const float SmoothedOffset = FMath::FInterpTo(CameraGroundOffsetZ, TargetOffset, DeltaTime, MovementTuning.CameraHeightAdjustSpeed);
 
-            if (World->LineTraceSingleByChannel(CameraGroundHit, TraceStart, TraceEnd, ECC_WorldStatic, QueryParams) && CameraGroundHit.bBlockingHit)
-            {
-                const float CurrentClearance = CameraPos.Z - CameraGroundHit.ImpactPoint.Z;
-                const float ClearanceError = MovementTuning.CameraGroundClearance - CurrentClearance;
-                const float TargetOffset = FMath::Clamp(
-                    ClearanceError,
-                    -MovementTuning.CameraMaxGroundOffset,
-                    MovementTuning.CameraMaxGroundOffset);
-
-                const float SmoothedOffset = FMath::FInterpTo(
-                    CameraGroundOffsetZ,
-                    TargetOffset,
-                    DeltaTime,
-                    MovementTuning.CameraHeightAdjustSpeed);
-
-                // Cap vertical camera displacement per frame to reduce nausea on abrupt terrain transitions.
-                const float MaxStepPerSecond = 300.f;
-                const float MaxStep = MaxStepPerSecond * DeltaTime;
-                const float DeltaOffset = SmoothedOffset - CameraGroundOffsetZ;
-                CameraGroundOffsetZ += FMath::Clamp(DeltaOffset, -MaxStep, MaxStep);
-            }
+            const float MaxStep = MovementTuning.CameraMaxVerticalStepPerSecond * DeltaTime;
+            const float DeltaOffset = SmoothedOffset - CameraGroundOffsetZ;
+            CameraGroundOffsetZ += FMath::Clamp(DeltaOffset, -MaxStep, MaxStep);
         }
     }
+}
 
-    SpringArmComponent->SocketOffset = FVector(0.f, 0.f, CameraGroundOffsetZ);
-
-    // Re-center the zorb on screen by adapting pitch from the actual camera position.
-    const FVector CameraPos = CameraComponent->GetComponentLocation();
-    const FVector ToBall = BallPos - CameraPos;
-    const float HorizontalDist = FVector(ToBall.X, ToBall.Y, 0.f).Size();
-    if (HorizontalDist > KINDA_SMALL_NUMBER)
+FVector AZorbPawn::ComputeSafePlanarDirection(const FVector& VelocityXY) const
+{
+    FVector Dir = VelocityXY;
+    Dir.Z = 0.f;
+    if (Dir.SizeSquared() < KINDA_SMALL_NUMBER)
     {
-        const float LookPitch = FMath::RadiansToDegrees(FMath::Atan2(ToBall.Z, HorizontalDist));
-        const float PitchBlend = FMath::Clamp(DeltaTime * (MovementTuning.CameraRotationSpeed * 2.0f), 0.f, 1.f);
-        DesiredCameraRotation.Pitch = FMath::Lerp(DesiredCameraRotation.Pitch, LookPitch, PitchBlend);
-        DesiredCameraRotation.Pitch = FMath::Clamp(DesiredCameraRotation.Pitch, -70.f, 25.f);
-        SpringArmComponent->SetRelativeRotation(DesiredCameraRotation);
+        FVector Fwd = GetActorForwardVector();
+        Fwd.Z = 0.f;
+        if (!Fwd.Normalize())
+        {
+            return FVector(1.f, 0.f, 0.f);
+        }
+        return Fwd;
     }
+
+    Dir.Normalize();
+    return Dir;
 }
 
 int32 AZorbPawn::GetOverheatLevel() const

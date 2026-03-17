@@ -87,5 +87,19 @@ private:
     float CameraGroundOffsetZ;
     float FrozenAirbornePitch;
     bool bHasFrozenAirbornePitch;
+    FVector CameraPlanarForward;
+    FVector CameraStableTravelDir;
+    float CameraReverseIntentHoldTime;
+    float CameraLookAheadDistance;
+    float CameraCollisionLiftZ;
+    float CameraBaseFov;
+    float CameraTargetFov;
+
+    // Camera target-follow state
+    FVector CameraPivotWorld; // smoothed pivot world position
+    float CameraMaxVerticalStepPerSecond;
+
     void UpdateCameraRotation(float DeltaTime);
+    void UpdateCameraPivotAndHeight(float DeltaTime, const FVector& BallPos, const FVector& VelocityXY);
+    FVector ComputeSafePlanarDirection(const FVector& VelocityXY) const;
 };
