@@ -5,6 +5,15 @@
 #include "ZorbTuningTypes.h"
 #include "ZorbPawn.generated.h"
 
+UENUM(BlueprintType)
+enum class EZorbTypePreset : uint8
+{
+    Classic UMETA(DisplayName = "Classic"),
+    Agile UMETA(DisplayName = "Agile"),
+    Heavy UMETA(DisplayName = "Heavy"),
+    Wild UMETA(DisplayName = "Wild")
+};
+
 UCLASS(Blueprintable)
 class AZorbPawn : public APawn
 {
@@ -15,6 +24,7 @@ public:
 
 protected:
     virtual void BeginPlay() override;
+    virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 public:
     virtual void Tick(float DeltaTime) override;
@@ -32,12 +42,22 @@ public:
     float GetCriticalFlashAlpha() const;
     float GetGroundSlopePercent() const;
     bool IsGrounded() const;
+    void PrepareForAutomatedScenario(const FTransform& StartTransform, const FVector& InitialLinearVelocity);
+    void ApplyAutomatedScenarioInput(float ForwardValue, float RightValue, bool bBoostEnabled);
+    void ResetAutomatedScenarioInput();
+    void RestartTelemetrySession();
+    void EndTelemetrySession();
 
 private:
     void RespawnToCheckpoint();
     void UpdateEnergyAndHeat(float DeltaTime);
     void TriggerCriticalOverheat();
     void ApplyProjectTuningIfEnabled();
+    void ResetInternalMassState();
+    void UpdateInternalMassModel(float DeltaTime, const FVector& WorldLinearAcceleration, bool bGroundedForMovement);
+    void BeginTelemetrySession(bool bIgnoreAutoStart = false);
+    void RecordTelemetrySample(float TimeSeconds, const FVector& Position, const FVector& Velocity, bool bGrounded, const FVector& GroundNormal);
+    float ComputeGroundSlopePercent(const FVector& GroundNormal, bool bGrounded) const;
 
     UPROPERTY(VisibleAnywhere)
     class USphereComponent* CollisionComponent;
@@ -59,6 +79,9 @@ private:
 
     UPROPERTY(EditAnywhere, Category = "Zorb Physics|Setup")
     bool bUseProjectTuningSettings;
+
+    UPROPERTY(EditAnywhere, Category = "Zorb Physics|Setup")
+    EZorbTypePreset ZorbTypePreset;
 
     UPROPERTY(EditAnywhere, Category = "Zorb Physics|Local Override", meta = (ShowOnlyInnerProperties))
     FZorbMovementTuning MovementTuning;
@@ -84,6 +107,7 @@ private:
     float HeatHaloCurrentOpacity;
     float HeatHaloCurrentScale;
     FLinearColor HeatHaloCurrentColor;
+    bool bAutomationInputOverrideActive;
     bool bBoostRequested;
     bool bBoostActive;
     FRotator DesiredCameraRotation;
@@ -97,10 +121,17 @@ private:
     float CameraCollisionLiftZ;
     float CameraBaseFov;
     float CameraTargetFov;
+    FVector InternalMassOffsetLocal;
+    FVector InternalMassVelocityLocal;
+    FVector PreviousLinearVelocity;
+    bool bHasPreviousLinearVelocity;
 
     // Camera target-follow state
     FVector CameraPivotWorld; // smoothed pivot world position
     float CameraMaxVerticalStepPerSecond;
+    float TelemetrySampleAccumulator;
+    bool bTelemetrySessionStarted;
+    FString ActiveTelemetryFilePath;
 
     void UpdateCameraRotation(float DeltaTime);
     void UpdateCameraPivotAndHeight(float DeltaTime, const FVector& BallPos, const FVector& VelocityXY);

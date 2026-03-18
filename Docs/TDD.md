@@ -1,4 +1,39 @@
- Technical Design Document — “ZORB EARTH RUN” (v1.0)
+ Technical Design Document — “ZORB EARTH RUN” (v1.1)
+
+## Addendum état réel (2026-03-18)
+
+Ce document reste la référence d'architecture, avec les précisions suivantes sur l'état implémenté:
+
+- Système de profils (presets) actif en runtime: Classic, Agile, Heavy, Wild.
+- Runner de scénarios automatisés actif via `Zorb Automation` (Project Settings).
+- Pipeline telemetry actif: export CSV runtime + analyse offline Python.
+- Replay ghost actif pour comparaison de trajectoires sur scénarios automatiques.
+- Campagnes de benchmark matrice effectuées (air + ground vallée) avec synthèse archivée.
+
+### Système de profils (implémentation)
+- Sélection preset exposée dans les settings projet.
+- Application via multiplicateurs de comportement (vitesse, turn, grip, freinage, dynamique interne).
+- Objectif engineering: maintenir des profils différenciés sans preset dominant global.
+
+### Scenario runner + telemetry (implémentation)
+- Scenarios définis dans la config projet (position, rotation, durée, timeline d'inputs).
+- Exécution automatique d'un scénario par session de test.
+- Telemetry enregistrée dans `Saved/Telemetry/` avec prefix configurable.
+- Fin de session telemetry forcée à la fin du scénario pour reproductibilité des durées.
+
+### Correctifs techniques validés pendant la phase benchmark
+- Correctif override d'input: les callbacks input joueur ne doivent plus écraser les inputs scenario en automation.
+- Correctif scenarios ground benchmark: suppression des respawns parasites dus à la surchauffe critique.
+- Validation de runs exploitables via contrôle des colonnes telemetry (inputs non-zero, heat sous seuil critique, durée cohérente).
+
+### Outillage actuel
+- `Tools/run_preset_tests.ps1`: orchestration preset x scenario.
+- `Tools/TuningAnalysis/analyze_telemetry.py`: lecture d'un run.
+- `Tools/TuningAnalysis/analyze_matrix.py`: comparaison matrice (dernier run par couple preset/scenario).
+
+### Etape suivante (planifiée)
+- Conserver le tuning fin pour une itération dédiée.
+- Introduire des capacités spéciales par profil après stabilisation de l'équilibrage de base.
 
 1. Architecture générale
 - Moteur: Unreal Engine (version récente LTS)

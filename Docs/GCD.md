@@ -1,4 +1,4 @@
- GAME CONCEPT DOCUMENT — “ZORB EARTH RUN” (v1.1)
+ GAME CONCEPT DOCUMENT — “ZORB EARTH RUN” (v1.2)
 🎯 1. Vision du jeu
 Zorb Earth Run est un jeu arcade où le joueur dévale des pentes générées à partir de la topographie réelle de la Terre.
 Chaque piste est unique : elle est créée à partir d’une coordonnée GPS, d’un code partagé ou d’un seed aléatoire.
@@ -92,6 +92,34 @@ Créer un gameplay tactique, où le joueur doit :
 - quand freiner
 - quand booster
 - comment optimiser sa trajectoire pour maximiser l’énergie disponible
+
+🟣 6.b Concept des profils de Zorb (identité gameplay)
+
+Le jeu repose sur 4 profils jouables, conçus pour être situatifs.
+Objectif produit: éviter un "meilleur profil absolu" et proposer des avantages/inconvénients lisibles selon le terrain.
+
+Profils:
+- Classic: profil polyvalent, stable, lisible en enchaînements techniques.
+- Agile: profil réactif, fort en relance et changements de direction.
+- Heavy: profil robuste, performant en contrôle/freinage et gestion des pentes.
+- Wild: profil à risque/récompense, fort en pics de performance mais moins prévisible.
+
+Principes d'équilibrage:
+- Chaque profil doit dominer au moins un type de contexte (terrain/scénario).
+- Aucun profil ne doit dominer toutes les catégories à la fois.
+- Chaque avantage majeur implique un coût réel (stabilité, chauffe, relance, contrôle).
+- L'écart global inter-profils doit rester limité pour préserver le choix joueur.
+
+Types de terrains/cas cibles:
+- Vallée fluide (flow/sprint)
+- Switchbacks (virages alternés)
+- Air control (phases aériennes)
+- Gestion freinage/relance
+- Terrain mixte "checkpoint"
+
+Vision long terme:
+- Les profils recevront une capacité spéciale propre (active ou passive), avec cooldown et trade-off explicite.
+- Cette couche sera ajoutée après stabilisation du tuning de base.
 
 👥 7. Multijoueur (nouvelle version)
 Le multijoueur est asynchrone ou synchrone, selon le mode, et inclut des interactions offensives fun.

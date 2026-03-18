@@ -1,0 +1,106 @@
+{
+  "version": "course-layout-v1",
+  "map_name": "valley_risk_reward",
+  "source_heightmap": "D:/Game_Project/ZorbEarthRun/Tools/HeightmapProcessing/output/candidates_v1/valley_risk_reward_1009_norm.png",
+  "import": {
+    "xy_scale": 100.0,
+    "z_scale": 50.0,
+    "world_offset": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "spawn_height_offset": 120.0
+  },
+  "start": {
+    "location": {
+      "x": 10200.0,
+      "y": -15400.0,
+      "z": 11917.182807791816
+    },
+    "rotation": {
+      "pitch": 0.0,
+      "yaw": 3.21548399174821,
+      "roll": 0.0
+    }
+  },
+  "checkpoints": [
+    {
+      "index": 1,
+      "location": {
+        "x": 19100.0,
+        "y": -14900.0,
+        "z": 8633.64987326524
+      },
+      "rotation": {
+        "pitch": 0.0,
+        "yaw": -39.69267315066882,
+        "roll": 0.0
+      }
+    },
+    {
+      "index": 2,
+      "location": {
+        "x": 20200.0,
+        "y": -23700.0,
+        "z": 7969.982339095004
+      },
+      "rotation": {
+        "pitch": 0.0,
+        "yaw": -82.596271147212,
+        "roll": 0.0
+      }
+    },
+    {
+      "index": 3,
+      "location": {
+        "x": 21400.0,
+        "y": -32600.0,
+        "z": 2854.872460008651
+      },
+      "rotation": {
+        "pitch": 0.0,
+        "yaw": -39.74972727026696,
+        "roll": 0.0
+      }
+    },
+    {
+      "index": 4,
+      "location": {
+        "x": 30300.0,
+        "y": -32100.0,
+        "z": -1808.7307225335098
+      },
+      "rotation": {
+        "pitch": 0.0,
+        "yaw": 3.21548399174821,
+        "roll": 0.0
+      }
+    },
+    {
+      "index": 5,
+      "location": {
+        "x": 39200.0,
+        "y": -31600.0,
+        "z": -7920.132810005247
+      },
+      "rotation": {
+        "pitch": 0.0,
+        "yaw": -39.41275603579565,
+        "roll": 0.0
+      }
+    }
+  ],
+  "finish": {
+    "location": {
+      "x": 40400.0,
+      "y": -40400.0,
+      "z": -11050.181535264815
+    },
+    "rotation": {
+      "pitch": 0.0,
+      "yaw": -82.23483398157467,
+      "roll": 0.0
+    }
+  }
+}

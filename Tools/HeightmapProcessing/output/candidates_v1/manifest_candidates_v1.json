@@ -1,0 +1,62 @@
+﻿{
+    "candidates":  [
+                       {
+                           "FlowAngle":  -52,
+                           "SlopeLimit":  0.016,
+                           "CorridorWidth":  0.13,
+                           "CorridorFrequency":  0.9,
+                           "Profile":  "flow",
+                           "LowNoise":  0.012,
+                           "Name":  "valley_flow",
+                           "SidebankStrength":  0.13,
+                           "CorridorDepth":  0.62,
+                           "CorridorCount":  1,
+                           "GlobalSlope":  0.48,
+                           "SlopeLimitPasses":  3,
+                           "MacroVariation":  0.08,
+                           "Seed":  1011,
+                           "CorridorMeander":  0.035,
+                           "Smoothness":  0.86
+                       },
+                       {
+                           "FlowAngle":  -50,
+                           "SlopeLimit":  0.017,
+                           "CorridorWidth":  0.115,
+                           "CorridorFrequency":  2,
+                           "Profile":  "switchback",
+                           "LowNoise":  0.014,
+                           "Name":  "valley_switchback",
+                           "SidebankStrength":  0.16,
+                           "CorridorDepth":  0.56,
+                           "CorridorCount":  1,
+                           "GlobalSlope":  0.41,
+                           "SlopeLimitPasses":  3,
+                           "MacroVariation":  0.09,
+                           "Seed":  2027,
+                           "CorridorMeander":  0.085,
+                           "Smoothness":  0.82
+                       },
+                       {
+                           "FlowAngle":  -56,
+                           "SlopeLimit":  0.018,
+                           "CorridorWidth":  0.105,
+                           "CorridorFrequency":  1.4,
+                           "Profile":  "risk_reward",
+                           "LowNoise":  0.016,
+                           "Name":  "valley_risk_reward",
+                           "SidebankStrength":  0.22,
+                           "CorridorDepth":  0.6,
+                           "CorridorCount":  2,
+                           "GlobalSlope":  0.52,
+                           "SlopeLimitPasses":  4,
+                           "MacroVariation":  0.11,
+                           "Seed":  3091,
+                           "CorridorMeander":  0.06,
+                           "Smoothness":  0.78
+                       }
+                   ],
+    "size_import":  1009,
+    "generated_at_utc":  "2026-03-18T01:53:37Z",
+    "version":  "v1",
+    "size_work":  2049
+}

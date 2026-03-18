@@ -26,4 +26,10 @@ public:
 
     UPROPERTY(Config, EditAnywhere, Category = "Zorb Feedback", meta = (ShowOnlyInnerProperties))
     FZorbFeedbackTuning Feedback;
+
+    UPROPERTY(Config, EditAnywhere, Category = "Zorb Telemetry", meta = (ShowOnlyInnerProperties))
+    FZorbTelemetryTuning Telemetry;
+
+    UPROPERTY(Config, EditAnywhere, Category = "Zorb Automation", meta = (ShowOnlyInnerProperties))
+    FZorbAutomationTuning Automation;
 };

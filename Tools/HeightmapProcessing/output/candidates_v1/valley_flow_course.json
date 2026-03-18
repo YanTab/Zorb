@@ -1,0 +1,106 @@
+{
+  "version": "course-layout-v1",
+  "map_name": "valley_flow",
+  "source_heightmap": "D:/Game_Project/ZorbEarthRun/Tools/HeightmapProcessing/output/candidates_v1/valley_flow_1009_norm.png",
+  "import": {
+    "xy_scale": 100.0,
+    "z_scale": 50.0,
+    "world_offset": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "spawn_height_offset": 120.0
+  },
+  "start": {
+    "location": {
+      "x": 19700.0,
+      "y": 14400.0,
+      "z": 12909.785723772042
+    },
+    "rotation": {
+      "pitch": 0.0,
+      "yaw": -74.96956947656672,
+      "roll": 0.0
+    }
+  },
+  "checkpoints": [
+    {
+      "index": 1,
+      "location": {
+        "x": 22600.0,
+        "y": 3600.0,
+        "z": 11134.633251292495
+      },
+      "rotation": {
+        "pitch": 0.0,
+        "yaw": -107.57125877832243,
+        "roll": 0.0
+      }
+    },
+    {
+      "index": 2,
+      "location": {
+        "x": 14000.0,
+        "y": -3600.0,
+        "z": 9774.321213713896
+      },
+      "rotation": {
+        "pitch": 0.0,
+        "yaw": -140.26002221567097,
+        "roll": 0.0
+      }
+    },
+    {
+      "index": 3,
+      "location": {
+        "x": 5400.0,
+        "y": -10700.0,
+        "z": 4037.418474907916
+      },
+      "rotation": {
+        "pitch": 0.0,
+        "yaw": -107.663335144186,
+        "roll": 0.0
+      }
+    },
+    {
+      "index": 4,
+      "location": {
+        "x": 8300.0,
+        "y": -21500.0,
+        "z": -1836.2340357193136
+      },
+      "rotation": {
+        "pitch": 0.0,
+        "yaw": -75.03572031929278,
+        "roll": 0.0
+      }
+    },
+    {
+      "index": 5,
+      "location": {
+        "x": 11200.0,
+        "y": -32400.0,
+        "z": -8440.949977723698
+      },
+      "rotation": {
+        "pitch": 0.0,
+        "yaw": -107.57125877832243,
+        "roll": 0.0
+      }
+    }
+  ],
+  "finish": {
+    "location": {
+      "x": 2600.0,
+      "y": -39500.0,
+      "z": -12156.072252410553
+    },
+    "rotation": {
+      "pitch": 0.0,
+      "yaw": -140.4575534851046,
+      "roll": 0.0
+    }
+  }
+}

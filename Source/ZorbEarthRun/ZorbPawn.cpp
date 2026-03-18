@@ -4,17 +4,84 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Engine/Engine.h"
+#include "HAL/FileManager.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
 #include "Kismet/GameplayStatics.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
 #include "UObject/ConstructorHelpers.h"
 #include "ZorbGameMode.h"
 #include "ZorbTuningSettings.h"
+
+namespace
+{
+struct FZorbTypeBehavior
+{
+    float ShellMassMultiplier = 1.f;
+    float MaxSpeedMultiplier = 1.f;
+    float TurnRateMultiplier = 1.f;
+    float GripMultiplier = 1.f;
+    float BrakeMultiplier = 1.f;
+    float InternalSpringMultiplier = 1.f;
+    float InternalDampingMultiplier = 1.f;
+    float InternalNoiseMultiplier = 1.f;
+    float InternalReactionMultiplier = 1.f;
+};
+
+FZorbTypeBehavior GetZorbTypeBehavior(EZorbTypePreset TypePreset)
+{
+    FZorbTypeBehavior Behavior;
+
+    switch (TypePreset)
+    {
+    case EZorbTypePreset::Agile:
+        Behavior.ShellMassMultiplier = 0.9f;
+        Behavior.MaxSpeedMultiplier = 1.05f;
+        Behavior.TurnRateMultiplier = 1.25f;
+        Behavior.GripMultiplier = 1.15f;
+        Behavior.BrakeMultiplier = 1.05f;
+        Behavior.InternalSpringMultiplier = 1.2f;
+        Behavior.InternalDampingMultiplier = 1.1f;
+        Behavior.InternalNoiseMultiplier = 0.8f;
+        Behavior.InternalReactionMultiplier = 0.95f;
+        break;
+    case EZorbTypePreset::Heavy:
+        Behavior.ShellMassMultiplier = 1.25f;
+        Behavior.MaxSpeedMultiplier = 0.95f;
+        Behavior.TurnRateMultiplier = 0.82f;
+        Behavior.GripMultiplier = 0.9f;
+        Behavior.BrakeMultiplier = 1.2f;
+        Behavior.InternalSpringMultiplier = 0.8f;
+        Behavior.InternalDampingMultiplier = 1.3f;
+        Behavior.InternalNoiseMultiplier = 0.55f;
+        Behavior.InternalReactionMultiplier = 0.75f;
+        break;
+    case EZorbTypePreset::Wild:
+        Behavior.ShellMassMultiplier = 1.f;
+        Behavior.MaxSpeedMultiplier = 1.02f;
+        Behavior.TurnRateMultiplier = 1.08f;
+        Behavior.GripMultiplier = 0.92f;
+        Behavior.BrakeMultiplier = 0.9f;
+        Behavior.InternalSpringMultiplier = 0.9f;
+        Behavior.InternalDampingMultiplier = 0.75f;
+        Behavior.InternalNoiseMultiplier = 1.45f;
+        Behavior.InternalReactionMultiplier = 1.28f;
+        break;
+    case EZorbTypePreset::Classic:
+    default:
+        break;
+    }
+
+    return Behavior;
+}
+}
 
 AZorbPawn::AZorbPawn()
 {
     PrimaryActorTick.bCanEverTick = true;
     bUseProjectTuningSettings = true;
+    ZorbTypePreset = EZorbTypePreset::Classic;
     CurrentEnergy = 0.f;
     CurrentHeat = 0.f;
     ForwardInputValue = 0.f;
@@ -27,6 +94,7 @@ AZorbPawn::AZorbPawn()
     HeatHaloCurrentOpacity = 0.f;
     HeatHaloCurrentScale = 1.06f;
     HeatHaloCurrentColor = FLinearColor(1.0f, 0.95f, 0.2f, 1.0f);
+    bAutomationInputOverrideActive = false;
     bBoostRequested = false;
     bBoostActive = false;
     DesiredCameraRotation = FRotator(-20.f, 0.f, 0.f);
@@ -40,6 +108,12 @@ AZorbPawn::AZorbPawn()
     CameraCollisionLiftZ = 0.f;
     CameraBaseFov = 90.f;
     CameraTargetFov = 90.f;
+    InternalMassOffsetLocal = FVector::ZeroVector;
+    InternalMassVelocityLocal = FVector::ZeroVector;
+    PreviousLinearVelocity = FVector::ZeroVector;
+    bHasPreviousLinearVelocity = false;
+    TelemetrySampleAccumulator = 0.f;
+    bTelemetrySessionStarted = false;
 
     AutoPossessPlayer = EAutoReceiveInput::Player0;
 
@@ -111,7 +185,11 @@ void AZorbPawn::BeginPlay()
     if (CollisionComponent)
     {
         CollisionComponent->SetLinearDamping(MovementTuning.DriveLinearDamping);
+        const FZorbTypeBehavior TypeBehavior = GetZorbTypeBehavior(ZorbTypePreset);
+        CollisionComponent->SetMassOverrideInKg(NAME_None, 80.f * TypeBehavior.ShellMassMultiplier);
     }
+
+    ResetInternalMassState();
 
     DesiredCameraRotation = FRotator(MovementTuning.CameraPitchAngle, 0.f, 0.f);
     FrozenAirbornePitch = MovementTuning.CameraPitchAngle;
@@ -148,6 +226,14 @@ void AZorbPawn::BeginPlay()
             HeatHaloMID->SetVectorParameterValue(TEXT("TintColorAndOpacity"), FLinearColor(1.f, 0.95f, 0.2f, 0.0f));
         }
     }
+
+    BeginTelemetrySession(false);
+}
+
+void AZorbPawn::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+    EndTelemetrySession();
+    Super::EndPlay(EndPlayReason);
 }
 
 void AZorbPawn::Tick(float DeltaTime)
@@ -187,7 +273,6 @@ void AZorbPawn::Tick(float DeltaTime)
             1.f);
 
         const float InputMagnitude = (OverheatLockRemaining > 0.f) ? 0.f : RawInputMagnitude;
-        bBoostActive = bBoostRequested && OverheatLockRemaining <= 0.f && CurrentEnergy >= EnergyTuning.MinEnergyToBoost;
 
         bool bGroundedForMovement = false;
         FVector GroundNormal = FVector::UpVector;
@@ -208,23 +293,52 @@ void AZorbPawn::Tick(float DeltaTime)
             }
         }
 
-        float TargetLinearDamping = FMath::Lerp(MovementTuning.IdleLinearDamping, MovementTuning.DriveLinearDamping, InputMagnitude);
+        const float MovementInputMagnitude = bGroundedForMovement ? InputMagnitude : 0.f;
+        const float ImmediateMovementInputMagnitude = bGroundedForMovement ? ImmediateInputMagnitude : 0.f;
+        bBoostActive = bGroundedForMovement && bBoostRequested && OverheatLockRemaining <= 0.f && CurrentEnergy >= EnergyTuning.MinEnergyToBoost;
+        const FZorbTypeBehavior TypeBehavior = GetZorbTypeBehavior(ZorbTypePreset);
+        const float EffectiveMaxSpeed = MovementTuning.MaxSpeed * TypeBehavior.MaxSpeedMultiplier;
+
+        float TargetLinearDamping = bGroundedForMovement
+            ? FMath::Lerp(MovementTuning.IdleLinearDamping, MovementTuning.DriveLinearDamping, MovementInputMagnitude)
+            : MovementTuning.AirLinearDamping;
         const float SpeedForFreeRoll = CollisionComponent->GetPhysicsLinearVelocity().Size();
-        if (ImmediateInputMagnitude <= 0.05f && bGroundedForMovement && SpeedForFreeRoll > 150.f)
+        if (ImmediateMovementInputMagnitude <= 0.05f && bGroundedForMovement && SpeedForFreeRoll > 150.f)
         {
             TargetLinearDamping = FMath::Min(TargetLinearDamping, MovementTuning.FreeRollLinearDamping);
         }
         CollisionComponent->SetLinearDamping(TargetLinearDamping);
 
         FVector Velocity = CollisionComponent->GetPhysicsLinearVelocity();
-        const float Speed = Velocity.Size();
-        if (Speed > MovementTuning.MaxSpeed)
+        if (!bHasPreviousLinearVelocity)
         {
-            const FVector OverSpeedBrake = -Velocity.GetSafeNormal() * ((Speed - MovementTuning.MaxSpeed) * 1200.f);
+            PreviousLinearVelocity = Velocity;
+            bHasPreviousLinearVelocity = true;
+        }
+        const FVector WorldLinearAcceleration = (Velocity - PreviousLinearVelocity) / FMath::Max(DeltaTime, KINDA_SMALL_NUMBER);
+        PreviousLinearVelocity = Velocity;
+        UpdateInternalMassModel(DeltaTime, WorldLinearAcceleration, bGroundedForMovement);
+
+        const float Speed = Velocity.Size();
+        if (bGroundedForMovement && Speed > EffectiveMaxSpeed)
+        {
+            const FVector OverSpeedBrake = -Velocity.GetSafeNormal() * ((Speed - EffectiveMaxSpeed) * 1200.f);
             CollisionComponent->AddForce(OverSpeedBrake, NAME_None, false);
         }
 
-        if (InputMagnitude <= 0.05f && bGroundedForMovement && MovementTuning.DownhillGravityAssist > 0.f)
+        if (!bGroundedForMovement && MovementTuning.AirHorizontalDeceleration > 0.f)
+        {
+            FVector HorizontalVelocity = Velocity;
+            HorizontalVelocity.Z = 0.f;
+            const float HorizontalSpeed = HorizontalVelocity.Size();
+            if (HorizontalSpeed > 1.f)
+            {
+                const FVector AirDragAccel = -(HorizontalVelocity / HorizontalSpeed) * MovementTuning.AirHorizontalDeceleration;
+                CollisionComponent->AddForce(AirDragAccel * CollisionComponent->GetMass(), NAME_None, false);
+            }
+        }
+
+        if (MovementInputMagnitude <= 0.05f && bGroundedForMovement && MovementTuning.DownhillGravityAssist > 0.f)
         {
             const FVector DownhillVector = FVector::VectorPlaneProject(FVector::DownVector, GroundNormal);
             const float SlopeAmount = DownhillVector.Size();
@@ -236,7 +350,7 @@ void AZorbPawn::Tick(float DeltaTime)
             }
         }
 
-        if (InputMagnitude > 0.05f)
+        if (MovementInputMagnitude > 0.05f)
         {
             FVector CamForward = SpringArmComponent ? SpringArmComponent->GetForwardVector() : GetActorForwardVector();
             FVector CamRight = SpringArmComponent ? SpringArmComponent->GetRightVector() : GetActorRightVector();
@@ -245,7 +359,14 @@ void AZorbPawn::Tick(float DeltaTime)
             CamForward.Normalize();
             CamRight.Normalize();
 
-            FVector DesiredDir = (CamForward * SmoothedForwardInputValue) + (CamRight * SteeringRightInputValue);
+            FVector VelXYForInput = Velocity;
+            VelXYForInput.Z = 0.f;
+            const float PlanarSpeedForInput = VelXYForInput.Size();
+            const bool bAllowDirectionalReverse = PlanarSpeedForInput <= MovementTuning.ReverseDirectionalSpeedThreshold;
+
+            const float DriveForwardInput = bAllowDirectionalReverse ? SmoothedForwardInputValue : FMath::Max(0.f, SmoothedForwardInputValue);
+            const float BrakeInput = bAllowDirectionalReverse ? 0.f : FMath::Max(0.f, -SmoothedForwardInputValue);
+            FVector DesiredDir = (CamForward * DriveForwardInput) + (CamRight * SteeringRightInputValue);
             if (!DesiredDir.IsNearlyZero())
             {
                 DesiredDir.Normalize();
@@ -258,7 +379,7 @@ void AZorbPawn::Tick(float DeltaTime)
 
                 // Longitudinal: build speed along current heading. Never brakes, so speed is preserved through turns.
                 FVector LongitudinalAccel = FVector::ZeroVector;
-                const float TargetSpeed = InputMagnitude * MovementTuning.MaxSpeed;
+                const float TargetSpeed = InputMagnitude * EffectiveMaxSpeed;
                 if (CurrentPlanarSpeed < TargetSpeed)
                 {
                     const float Gain = FMath::Min((TargetSpeed - CurrentPlanarSpeed) * MovementTuning.VelocityResponse,
@@ -278,7 +399,7 @@ void AZorbPawn::Tick(float DeltaTime)
                     if (SinAngle > 0.001f && CurrentPlanarSpeed > 10.f)
                     {
                         const float CentripetalMag = FMath::Min(
-                            CurrentPlanarSpeed * MovementTuning.TurnRateScale,
+                            CurrentPlanarSpeed * MovementTuning.TurnRateScale * TypeBehavior.TurnRateMultiplier,
                             MovementTuning.MaxSteeringAcceleration);
                         CentripetalAccel = (CentripetalRaw / SinAngle) * CentripetalMag;
                     }
@@ -290,7 +411,7 @@ void AZorbPawn::Tick(float DeltaTime)
                         const float ZorbMass = FMath::Max(CollisionComponent->GetMass(), 1.f);
                         const FVector ForwardVel = DesiredDir * FVector::DotProduct(VelXY, DesiredDir);
                         const FVector LateralVel = VelXY - ForwardVel;
-                        FVector RawGrip = (-LateralVel * MovementTuning.LateralGripForce) / ZorbMass;
+                        FVector RawGrip = (-LateralVel * (MovementTuning.LateralGripForce * TypeBehavior.GripMultiplier)) / ZorbMass;
                         LateralGripAccel = RawGrip.GetClampedToMaxSize(MovementTuning.MaxDriveAcceleration * 1.5f);
                     }
                 }
@@ -301,6 +422,40 @@ void AZorbPawn::Tick(float DeltaTime)
                     TotalAccel *= MovementTuning.BoostAccelerationMultiplier;
                 }
                 CollisionComponent->AddForce(TotalAccel * CollisionComponent->GetMass(), NAME_None, false);
+            }
+
+            if (bGroundedForMovement && BrakeInput > 0.05f)
+            {
+                FVector HorizontalVelocity = Velocity;
+                HorizontalVelocity.Z = 0.f;
+                const float HorizontalSpeed = HorizontalVelocity.Size();
+                if (HorizontalSpeed > 1.f)
+                {
+                    const FVector BrakeAccel = -(HorizontalVelocity / HorizontalSpeed) * (MovementTuning.BrakeDeceleration * TypeBehavior.BrakeMultiplier * BrakeInput);
+                    CollisionComponent->AddForce(BrakeAccel * CollisionComponent->GetMass(), NAME_None, false);
+                }
+            }
+        }
+
+        const UZorbTuningSettings* ProjectSettings = UZorbTuningSettings::Get();
+        if (bTelemetrySessionStarted && ProjectSettings && ProjectSettings->Telemetry.bEnableTelemetry && GetWorld())
+        {
+            const float SampleInterval = (ProjectSettings->Telemetry.SampleRateHz > KINDA_SMALL_NUMBER)
+                ? (1.f / ProjectSettings->Telemetry.SampleRateHz)
+                : 0.f;
+            TelemetrySampleAccumulator += DeltaTime;
+
+            if (SampleInterval <= 0.f)
+            {
+                RecordTelemetrySample(GetWorld()->GetTimeSeconds(), GetActorLocation(), CollisionComponent->GetPhysicsLinearVelocity(), bGroundedForMovement, GroundNormal);
+            }
+            else
+            {
+                while (TelemetrySampleAccumulator >= SampleInterval)
+                {
+                    TelemetrySampleAccumulator -= SampleInterval;
+                    RecordTelemetrySample(GetWorld()->GetTimeSeconds(), GetActorLocation(), CollisionComponent->GetPhysicsLinearVelocity(), bGroundedForMovement, GroundNormal);
+                }
             }
         }
     }
@@ -373,21 +528,90 @@ void AZorbPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 
 void AZorbPawn::MoveForward(float Value)
 {
+    if (bAutomationInputOverrideActive)
+    {
+        return;
+    }
+
     ForwardInputValue = Value;
 }
 
 void AZorbPawn::MoveRight(float Value)
 {
+    if (bAutomationInputOverrideActive)
+    {
+        return;
+    }
+
     RightInputValue = Value;
+}
+
+void AZorbPawn::PrepareForAutomatedScenario(const FTransform& StartTransform, const FVector& InitialLinearVelocity)
+{
+    SetActorLocationAndRotation(
+        StartTransform.GetLocation(),
+        StartTransform.GetRotation().Rotator(),
+        false,
+        nullptr,
+        ETeleportType::TeleportPhysics);
+
+    if (CollisionComponent)
+    {
+        CollisionComponent->SetPhysicsLinearVelocity(InitialLinearVelocity);
+        CollisionComponent->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+    }
+
+    ForwardInputValue = 0.f;
+    RightInputValue = 0.f;
+    SmoothedForwardInputValue = 0.f;
+    SmoothedRightInputValue = 0.f;
+    SteeringRightInputValue = 0.f;
+    bBoostRequested = false;
+    bBoostActive = false;
+    bAutomationInputOverrideActive = false;
+    ResetInternalMassState();
+}
+
+void AZorbPawn::ApplyAutomatedScenarioInput(float ForwardValue, float RightValue, bool bBoostEnabled)
+{
+    bAutomationInputOverrideActive = true;
+    ForwardInputValue = ForwardValue;
+    RightInputValue = RightValue;
+    bBoostRequested = bBoostEnabled;
+}
+
+void AZorbPawn::ResetAutomatedScenarioInput()
+{
+    bAutomationInputOverrideActive = false;
+    ForwardInputValue = 0.f;
+    RightInputValue = 0.f;
+    bBoostRequested = false;
+    bBoostActive = false;
+}
+
+void AZorbPawn::RestartTelemetrySession()
+{
+    EndTelemetrySession();
+    BeginTelemetrySession(true);
 }
 
 void AZorbPawn::StartBoost()
 {
+    if (bAutomationInputOverrideActive)
+    {
+        return;
+    }
+
     bBoostRequested = true;
 }
 
 void AZorbPawn::StopBoost()
 {
+    if (bAutomationInputOverrideActive)
+    {
+        return;
+    }
+
     bBoostRequested = false;
     bBoostActive = false;
 }
@@ -415,6 +639,7 @@ void AZorbPawn::RespawnToCheckpoint()
     SteeringRightInputValue = 0.f;
     bBoostRequested = false;
     bBoostActive = false;
+    ResetInternalMassState();
 
     if (GEngine)
     {
@@ -527,7 +752,74 @@ void AZorbPawn::ApplyProjectTuningIfEnabled()
         EnergyTuning = Settings->Energy;
         RespawnTuning = Settings->Respawn;
         FeedbackTuning = Settings->Feedback;
+        ZorbTypePreset = static_cast<EZorbTypePreset>(Settings->Movement.ZorbTypePreset);
     }
+}
+
+void AZorbPawn::ResetInternalMassState()
+{
+    InternalMassOffsetLocal = FVector::ZeroVector;
+    InternalMassVelocityLocal = FVector::ZeroVector;
+    PreviousLinearVelocity = FVector::ZeroVector;
+    bHasPreviousLinearVelocity = false;
+}
+
+void AZorbPawn::UpdateInternalMassModel(float DeltaTime, const FVector& WorldLinearAcceleration, bool bGroundedForMovement)
+{
+    if (!CollisionComponent || DeltaTime <= KINDA_SMALL_NUMBER)
+    {
+        return;
+    }
+
+    // Simplified double-shell model: inner mass as isotropic spring-damper point.
+    constexpr float SpringStiffness = 12.0f;
+    constexpr float DampingGrounded = 5.5f;
+    constexpr float DampingAirborne = 3.0f;
+    constexpr float InertialCoupling = 0.24f;
+    constexpr float InputBiasForward = 160.0f;
+    constexpr float InputBiasRight = 120.0f;
+    constexpr float NoiseStrengthGrounded = 28.0f;
+    constexpr float NoiseStrengthAirborne = 12.0f;
+    constexpr float ReactionCoupling = 0.22f;
+    constexpr float MaxOffsetRadiusRatio = 0.26f;
+    const FZorbTypeBehavior TypeBehavior = GetZorbTypeBehavior(ZorbTypePreset);
+
+    const FTransform BodyTransform = CollisionComponent->GetComponentTransform();
+    const FVector AccelLocal = BodyTransform.InverseTransformVectorNoScale(WorldLinearAcceleration);
+
+    const FVector InputBiasLocal(
+        -SmoothedForwardInputValue * InputBiasForward,
+        -SteeringRightInputValue * InputBiasRight,
+        0.f);
+
+    const float TimeSeconds = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+    const float NoiseStrength = (bGroundedForMovement ? NoiseStrengthGrounded : NoiseStrengthAirborne) * TypeBehavior.InternalNoiseMultiplier;
+    const FVector NoiseLocal(
+        FMath::PerlinNoise1D(TimeSeconds * 1.7f),
+        FMath::PerlinNoise1D(TimeSeconds * 2.3f + 37.1f),
+        FMath::PerlinNoise1D(TimeSeconds * 1.2f + 83.5f));
+
+    const float Damping = (bGroundedForMovement ? DampingGrounded : DampingAirborne) * TypeBehavior.InternalDampingMultiplier;
+    const FVector LocalRelativeAccel =
+        (-InternalMassOffsetLocal * (SpringStiffness * TypeBehavior.InternalSpringMultiplier)) -
+        (InternalMassVelocityLocal * Damping) -
+        (AccelLocal * InertialCoupling) +
+        InputBiasLocal +
+        (NoiseLocal * NoiseStrength);
+
+    InternalMassVelocityLocal += LocalRelativeAccel * DeltaTime;
+    InternalMassOffsetLocal += InternalMassVelocityLocal * DeltaTime;
+
+    const float MaxOffsetRadius = CollisionComponent->GetScaledSphereRadius() * MaxOffsetRadiusRatio;
+    InternalMassOffsetLocal = InternalMassOffsetLocal.GetClampedToMaxSize(MaxOffsetRadius);
+
+    const float ShellMass = FMath::Max(1.f, CollisionComponent->GetMass());
+    const FVector ReactionForceWorld = BodyTransform.TransformVectorNoScale(-LocalRelativeAccel * (ShellMass * ReactionCoupling * TypeBehavior.InternalReactionMultiplier));
+    const FVector OffsetWorld = BodyTransform.TransformVectorNoScale(InternalMassOffsetLocal);
+    CollisionComponent->AddForceAtLocation(
+        ReactionForceWorld,
+        CollisionComponent->GetComponentLocation() + OffsetWorld,
+        NAME_None);
 }
 
 void AZorbPawn::UpdateCameraRotation(float DeltaTime)
@@ -711,6 +1003,101 @@ float AZorbPawn::GetCriticalFlashAlpha() const
     return FMath::Clamp(CriticalFlashRemaining / EnergyTuning.CriticalFlashDuration, 0.f, 1.f);
 }
 
+void AZorbPawn::BeginTelemetrySession(bool bIgnoreAutoStart)
+{
+    const UZorbTuningSettings* ProjectSettings = UZorbTuningSettings::Get();
+    if (!ProjectSettings || !ProjectSettings->Telemetry.bEnableTelemetry)
+    {
+        return;
+    }
+
+    if (!bIgnoreAutoStart && !ProjectSettings->Telemetry.bAutoStartOnBeginPlay)
+    {
+        return;
+    }
+
+    const FString OutputDir = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("Telemetry"));
+    IFileManager::Get().MakeDirectory(*OutputDir, true);
+
+    const FString FilePrefix = ProjectSettings->Telemetry.OutputFilePrefix.IsEmpty()
+        ? TEXT("zorb_run")
+        : ProjectSettings->Telemetry.OutputFilePrefix;
+    const FString Timestamp = FDateTime::Now().ToString(TEXT("%Y%m%d_%H%M%S"));
+    ActiveTelemetryFilePath = FPaths::Combine(OutputDir, FString::Printf(TEXT("%s_%s.csv"), *FilePrefix, *Timestamp));
+
+    const FString Header = TEXT("time_seconds,pos_x,pos_y,pos_z,vel_x,vel_y,vel_z,planar_speed,vertical_speed,grounded,slope_percent,forward_input,right_input,smoothed_forward,smoothed_right,steering_right,boost_active,energy,heat,max_speed,turn_rate_scale,brake_deceleration,air_horizontal_deceleration\n");
+    if (FFileHelper::SaveStringToFile(Header, *ActiveTelemetryFilePath, FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM))
+    {
+        bTelemetrySessionStarted = true;
+        TelemetrySampleAccumulator = 0.f;
+        UE_LOG(LogTemp, Log, TEXT("Telemetry started: %s"), *ActiveTelemetryFilePath);
+    }
+}
+
+void AZorbPawn::EndTelemetrySession()
+{
+    if (bTelemetrySessionStarted)
+    {
+        UE_LOG(LogTemp, Log, TEXT("Telemetry ended: %s"), *ActiveTelemetryFilePath);
+    }
+
+    bTelemetrySessionStarted = false;
+    TelemetrySampleAccumulator = 0.f;
+    ActiveTelemetryFilePath.Empty();
+}
+
+void AZorbPawn::RecordTelemetrySample(float TimeSeconds, const FVector& Position, const FVector& Velocity, bool bGrounded, const FVector& GroundNormal)
+{
+    if (!bTelemetrySessionStarted || ActiveTelemetryFilePath.IsEmpty())
+    {
+        return;
+    }
+
+    FVector PlanarVelocity = Velocity;
+    PlanarVelocity.Z = 0.f;
+    const float SlopePercent = ComputeGroundSlopePercent(GroundNormal, bGrounded);
+
+    const FString Row = FString::Printf(
+        TEXT("%.4f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%d,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%d,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\n"),
+        TimeSeconds,
+        Position.X,
+        Position.Y,
+        Position.Z,
+        Velocity.X,
+        Velocity.Y,
+        Velocity.Z,
+        PlanarVelocity.Size(),
+        Velocity.Z,
+        bGrounded ? 1 : 0,
+        SlopePercent,
+        ForwardInputValue,
+        RightInputValue,
+        SmoothedForwardInputValue,
+        SmoothedRightInputValue,
+        SteeringRightInputValue,
+        bBoostActive ? 1 : 0,
+        CurrentEnergy,
+        CurrentHeat,
+        MovementTuning.MaxSpeed,
+        MovementTuning.TurnRateScale,
+        MovementTuning.BrakeDeceleration,
+        MovementTuning.AirHorizontalDeceleration);
+
+    FFileHelper::SaveStringToFile(Row, *ActiveTelemetryFilePath, FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM, &IFileManager::Get(), FILEWRITE_Append);
+}
+
+float AZorbPawn::ComputeGroundSlopePercent(const FVector& GroundNormal, bool bGrounded) const
+{
+    if (!bGrounded)
+    {
+        return 0.f;
+    }
+
+    const float SafeZ = FMath::Max(FMath::Abs(GroundNormal.Z), 0.001f);
+    const float HorizontalComponent = FVector(GroundNormal.X, GroundNormal.Y, 0.f).Size();
+    return (HorizontalComponent / SafeZ) * 100.f;
+}
+
 bool AZorbPawn::IsGrounded() const
 {
     if (!CollisionComponent)
@@ -762,8 +1149,5 @@ float AZorbPawn::GetGroundSlopePercent() const
         return 0.f;
     }
 
-    const FVector GroundNormal = GroundHit.ImpactNormal.GetSafeNormal();
-    const float UpDot = FMath::Clamp(FVector::DotProduct(GroundNormal, FVector::UpVector), 0.01f, 1.f);
-    const float TangentMag = FMath::Sqrt(FMath::Max(0.f, 1.f - (UpDot * UpDot)));
-    return (TangentMag / UpDot) * 100.f;
+    return ComputeGroundSlopePercent(GroundHit.ImpactNormal.GetSafeNormal(), true);
 }

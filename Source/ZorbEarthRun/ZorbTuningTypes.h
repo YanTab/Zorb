@@ -8,6 +8,9 @@ struct FZorbMovementTuning
 {
     GENERATED_BODY()
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Zorb Type")
+    uint8 ZorbTypePreset = 0;
+
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (ClampMin = "1000.0", ClampMax = "500000.0"))
     float MoveForce = 35000.f;
 
@@ -16,6 +19,13 @@ struct FZorbMovementTuning
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (ClampMin = "100.0", ClampMax = "5000.0"))
     float MaxDriveAcceleration = 1200.f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (ClampMin = "100.0", ClampMax = "8000.0"))
+    float BrakeDeceleration = 1800.f;
+
+    // Below this planar speed, negative forward input acts as directional reverse input instead of brake.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (ClampMin = "0.0", ClampMax = "1000.0"))
+    float ReverseDirectionalSpeedThreshold = 120.f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (ClampMin = "200.0", ClampMax = "10000.0"))
     float MaxSpeed = 3200.f;
@@ -34,6 +44,12 @@ struct FZorbMovementTuning
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|FreeRoll", meta = (ClampMin = "0.0", ClampMax = "1.0"))
     float DownhillAssistMinSlope = 0.03f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Air", meta = (ClampMin = "0.0", ClampMax = "2.0"))
+    float AirLinearDamping = 0.05f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Air", meta = (ClampMin = "0.0", ClampMax = "2000.0"))
+    float AirHorizontalDeceleration = 120.f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (ClampMin = "0.0", ClampMax = "200000.0"))
     float LateralGripForce = 16000.f;
@@ -247,4 +263,97 @@ struct FZorbFeedbackTuning
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feedback|Halo", meta = (ClampMin = "1.0", ClampMax = "3.0"))
     float HaloLevel3Scale = 1.18f;
+};
+
+USTRUCT(BlueprintType)
+struct FZorbTelemetryTuning
+{
+    GENERATED_BODY()
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Telemetry")
+    bool bEnableTelemetry = false;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Telemetry")
+    bool bAutoStartOnBeginPlay = true;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Telemetry", meta = (ClampMin = "1.0", ClampMax = "240.0"))
+    float SampleRateHz = 20.f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Telemetry")
+    FString OutputFilePrefix = TEXT("zorb_run");
+};
+
+USTRUCT(BlueprintType)
+struct FZorbScenarioInputKeyframe
+{
+    GENERATED_BODY()
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scenario", meta = (ClampMin = "0.0"))
+    float TimeSeconds = 0.f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scenario", meta = (ClampMin = "-1.0", ClampMax = "1.0"))
+    float ForwardInput = 0.f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scenario", meta = (ClampMin = "-1.0", ClampMax = "1.0"))
+    float RightInput = 0.f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scenario")
+    bool bBoostActive = false;
+};
+
+USTRUCT(BlueprintType)
+struct FZorbScenarioDefinition
+{
+    GENERATED_BODY()
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scenario")
+    FName ScenarioName;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scenario")
+    FVector StartLocation = FVector::ZeroVector;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scenario")
+    FRotator StartRotation = FRotator::ZeroRotator;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scenario")
+    FVector InitialLinearVelocity = FVector::ZeroVector;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scenario", meta = (ClampMin = "0.1"))
+    float DurationSeconds = 3.f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scenario")
+    TArray<FZorbScenarioInputKeyframe> InputTimeline;
+};
+
+USTRUCT(BlueprintType)
+struct FZorbAutomationTuning
+{
+    GENERATED_BODY()
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Automation")
+    bool bEnableScenarioRunner = false;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Automation")
+    FName ScenarioName;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Automation")
+    bool bRestartTelemetryOnScenarioStart = true;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Automation", meta = (ClampMin = "0.0", ClampMax = "10.0"))
+    float StartupDelaySeconds = 0.25f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Automation")
+    TArray<FZorbScenarioDefinition> Scenarios;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Automation|Ghost")
+    bool bEnableGhostReplay = false;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Automation|Ghost")
+    bool bUseLatestTelemetryGhost = true;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Automation|Ghost", meta = (EditCondition = "!bUseLatestTelemetryGhost"))
+    FString GhostTelemetryFile;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Automation|Ghost", meta = (ClampMin = "0.1", ClampMax = "2.0"))
+    float GhostVisualScale = 1.0f;
 };

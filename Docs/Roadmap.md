@@ -1,6 +1,117 @@
-ROADMAP DÉTAILLÉE — “ZORB EARTH RUN” (v1.0)
+ROADMAP DÉTAILLÉE — “ZORB EARTH RUN” (v1.1)
 
-## Suivi d'avancement (mis à jour le 2026-03-17)
+## Suivi d'avancement (mis à jour le 2026-03-18)
+
+### Mise à jour session 2026-03-18 (tests comparatifs + équilibrage)
+- [x] Campagne comparative full exécutée sur 8 scénarios (5 air + 3 ground vallée) et 4 presets.
+- [x] Pipeline de benchmark stabilisé: sélection du dernier run par couple preset/scenario + synthèse objective.
+- [x] Scénarios vallée ajoutés depuis le même point de départ/orientation:
+	- `ground_cp_run`
+	- `ground_valley_sprint`
+	- `ground_valley_switchback`
+- [x] Correctif critique automation: les inputs scénarisés ne sont plus écrasés par l'input joueur pendant les runs.
+- [x] Correctif scénario ground: suppression des surchauffes critiques pendant benchmark (plus de respawn parasite).
+- [x] Journalisation des résultats de campagne consolidée dans `Docs/BenchmarkLog.md`.
+
+### Décision de session
+- [x] Reporter le tuning final des presets à une itération dédiée.
+- [x] Conserver l'objectif "pas de meilleur preset global", avec différenciation par type de terrain.
+
+### Future étape prioritaire — Capacités spéciales par profil
+**Objectif**: renforcer l'identité de chaque preset via une capacité active/passive avec contrepartie claire.
+
+Backlog v1 (à spécifier et implémenter plus tard):
+- `Classic`: capacité de régularité/contrôle (ex: réduction ponctuelle des pertes en virage).
+- `Agile`: capacité de relance/maniabilité (ex: impulsion courte orientée trajectoire).
+- `Heavy`: capacité thermique/stabilité (ex: réduction temporaire du gain de chaleur).
+- `Wild`: capacité burst risquée (ex: double boost court avec coût thermique élevé).
+
+Contraintes d'équilibrage prévues:
+- fenêtre d'activation + cooldown explicite,
+- trade-off mesurable (vitesse, chaleur, énergie ou contrôle),
+- validation obligatoire sur matrice multi-terrains (pas seulement un scénario).
+
+### Révision de tâche prioritaire — Génération Heightmap -> Mesh -> Map jouable
+**Constat**:
+- Le pipeline existe en prototype, mais la tâche reste trop large pour piloter la qualité terrain de manière fiable.
+- Les étapes techniques, les sorties attendues et les critères de validation doivent être explicitement séparés.
+
+**Objectif révisé**:
+- Passer d'un prototype "ça marche" à un pipeline reproductible, mesurable, et exploitable en production de pistes test.
+
+**Sources de heightmap (décision produit)**:
+Deux sources sont retenues, avec usages complémentaires:
+
+1. **Heightmaps réelles (DB/API DEM)**
+- Avantages: crédibilité géographique, variété naturelle des reliefs, valeur produit "piste du monde réel".
+- Risques: qualité hétérogène des données, latence réseau/API, zones parfois peu ludiques sans post-traitement.
+- Usage cible: contenu live, mode exploration, pistes partagées par coordonnées.
+
+2. **Heightmaps procédurales artificielles**
+- Avantages: contrôle total du fun design, reproductibilité parfaite, génération rapide pour benchmark et tuning.
+- Risques: moins d'authenticité géographique, risque de patterns répétitifs si générateur pauvre.
+- Usage cible: scénarios de test, calibration gameplay, contenu "curated" orienté fun.
+
+**Décision recommandée**:
+- Approche **hybride**: utiliser le procédural pour la boucle d'itération gameplay + utiliser le réel pour la promesse produit et la rejouabilité.
+- Exiger une même étape de "qualification jouabilité" avant qu'une map (réelle ou procédurale) entre dans la boucle benchmark.
+
+**Découpage v2 (livrables techniques)**:
+1. **Ingestion Heightmap**
+- Format d'entrée canonique défini (16-bit grayscale PNG + fallback R16).
+- Validation automatique des dimensions autorisées (ex: 1009, 2017, 2049).
+2. **Conversion Mesh jouable**
+- Génération mesh terrain stable (collisions fiables, échelle correcte, orientation validée).
+- Contrôle des artefacts majeurs (marches, trous, zones non parcourables).
+3. **Habillage gameplay minimal**
+- Définition Start/Finish + checkpoints minimum.
+- Spawn Zorb valide + test de roulage continu sans blocage critique.
+4. **Validation outillée**
+- Checklist de run standardisée (spawn, roulage, pente, checkpoint, finish, respawn).
+- Export d'un rapport de validation terrain (manuel ou scripté) avant usage tuning.
+
+**Critères d'acceptation (DoD)**:
+- Une nouvelle heightmap peut être importée et rendue jouable en moins de 15 minutes.
+- Le Zorb peut rouler du start au finish sans rupture majeure de collision.
+- Les checkpoints et respawn fonctionnent sur la map générée.
+- La map est qualifiée pour entrer dans la boucle de benchmark/tuning.
+
+**Terrain QA Runbook v1 (checklist exécutable)**:
+1. **Préparation (2 min)**
+- [ ] Build editor OK et map cible ouverte.
+- [ ] Heightmap source identifiée (PNG 16-bit ou R16) + dimensions conformes.
+- [ ] Paramètres d'import notés (scale XY/Z, orientation).
+
+2. **Import & génération (5 min)**
+- [ ] Import sans erreur bloquante.
+- [ ] Mesh/landscape généré avec collisions actives.
+- [ ] Aucun artefact critique visible (trou, surface inversée, marche invalide).
+
+3. **Habillage gameplay minimal (4 min)**
+- [ ] Start défini et spawn Zorb valide.
+- [ ] Finish défini et atteignable.
+- [ ] Checkpoints minimum posés et ordre validé.
+
+4. **Run de validation (5 min)**
+- [ ] Roulage continu start -> finish sans blocage critique.
+- [ ] Respawn fonctionne sur au moins 1 checkpoint.
+- [ ] Caméra reste lisible sur pentes majeures.
+- [ ] Aucun crash/erreur bloquante pendant le run.
+
+5. **Go / No-Go**
+- [ ] **GO benchmark** si toutes les cases ci-dessus sont validées.
+- [ ] **NO-GO** sinon, avec défaut majeur documenté + action corrective.
+
+6. **Rapport minimal à archiver**
+- [ ] Nom map + source heightmap + date.
+- [ ] Temps import -> map jouable (objectif <= 15 min).
+- [ ] Résultat GO/NO-GO.
+- [ ] 3 défauts max observés + priorité (haute/moyenne/faible).
+
+**Priorité**: Haute (bloquant qualité pour tuning Movement/Energy/Profiles).
+
+**Préparation prochaine session**:
+- Voir le plan dédié: `Docs/NextSession_ProceduralHeightmaps.md`.
 
 ### Phase 0 — Pré-production
 - [x] Roadmap définie
@@ -47,6 +158,82 @@ ROADMAP DÉTAILLÉE — “ZORB EARTH RUN” (v1.0)
 ### Préparation outillage tuning (future étape)
 1. Créer un écran Admin runtime pour éditer les paramètres critiques (movement/energy/respawn).
 2. Ajouter sauvegarde/chargement de presets (prototype, arcade, hardcore).
+
+### Nouvelle piste prioritaire: télémétrie + auto-tuning assisté
+**Constat**:
+- Le fine tuning manuel atteint ses limites: trop de paramètres, tests hétérogènes, ressenti subjectif, et comparaison difficile entre deux itérations.
+- Le comportement cible n'est pas une "physique réelle pure", mais un compromis mesurable entre crédibilité physique, lisibilité gameplay, et fun arcade.
+
+**Objectif produit**:
+- Construire un pipeline qui enregistre les runs réels sur `Villard`, calcule des métriques objectives, puis aide à ajuster les paramètres de tuning à partir de scénarios reproductibles.
+
+**Principe retenu**:
+- Ne pas chercher d'abord à reproduire une simulation physique parfaite.
+- Définir un ensemble de comportements cibles mesurables.
+- Comparer le run réel à ces métriques cibles.
+- Utiliser l'optimisation offline pour proposer des paramètres candidats, puis valider en jeu.
+
+**Architecture visée**:
+1. **Instrumentation Unreal runtime**
+- Export CSV/JSON par tick ou sous-échantillonnage fixe.
+- Données minimales: temps, position, vitesse 3D, vitesse horizontale, vitesse verticale, grounded/airborne, pente locale, inputs bruts, inputs lissés, boost, énergie, chaleur, paramètres actifs.
+2. **Bibliothèque de scénarios standardisés**
+- Exemples: saut sans input, freinage à vitesse donnée, maintien A ou D à vitesse donnée, alternance A-D, descente roue libre sur pente, sortie de virage.
+- Chaque scénario part d'un état initial contrôlé ou d'une zone de piste connue.
+3. **Analyse offline des runs**
+- Lecture des CSV/JSON.
+- Découpage des runs en segments utiles (air, freinage, virage, roue libre, boost).
+- Calcul de scores et d'écarts par rapport aux cibles.
+4. **Auto-tuning offline**
+- Première passe: grid search / random search sur un petit sous-ensemble de paramètres.
+- Deuxième passe (si utile): Bayesian optimization ou CMA-ES.
+- Sortie: classement des presets candidats + rapport de métriques.
+
+**Métriques cibles initiales**:
+- **Air control**: aucun effet d'input en l'air, perte horizontale faible et contrôlée, accélération verticale due à la gravité uniquement.
+- **Braking**: distance d'arrêt mesurable et stable pour une vitesse d'entrée donnée.
+- **Turning**: rayon de virage, temps d'entrée, temps de sortie, perte de vitesse limitée.
+- **Free roll**: conservation d'inertie cohérente et gain/perte d'énergie conforme au design.
+- **Stability**: absence d'oscillation divergente, de tremblement, ou de trajectoires absurdes sous stress input.
+
+**Pré-requis méthodologiques**:
+- Fixer une map de référence (`Villard`).
+- Fixer des zones ou segments de test.
+- Définir des scripts d'input reproductibles.
+- Réduire autant que possible la non-déterminisme entre runs.
+- Distinguer clairement:
+	- validation physique crédible,
+	- validation gameplay,
+	- validation confort caméra.
+
+**Plan de réalisation (ordre recommandé)**:
+1. **Telemetry v1**
+- Export runtime de la télémétrie Zorb dans `Saved/Telemetry/`.
+- Fichier exploitable hors Unreal, versionné uniquement comme outil local (pas comme donnée de build).
+2. **Analyzer v1**
+- Script Python offline qui résume un run.
+- Extraction de métriques simples: durée, distance, vitesse max, segments airborne, pertes de vitesse, freinage, virages.
+3. **Scenario runner v1**
+- Définir 3 à 5 scénarios de test de référence.
+- Standardiser les entrées et conditions initiales.
+4. **Optimizer v1**
+- Balayer automatiquement quelques paramètres seulement (ex: `BrakeDeceleration`, `TurnRateScale`, `AirHorizontalDeceleration`).
+- Produire un score global et une shortlist de presets.
+5. **Preset loop**
+- Réinjecter les meilleurs candidats dans les `Zorb Tuning Settings`.
+- Revalider en jeu avant tout commit de tuning.
+
+**Découpage technique court terme**:
+- Étape A: télémétrie CSV embarquée dans `AZorbPawn`.
+- Étape B: analyseur Python sans dépendances externes.
+- Étape C: formalisation des scénarios de test.
+- Étape D: optimisation semi-automatique.
+
+**Critères de validation de cette piste outillage**:
+- Un run de test peut être enregistré et relu hors Unreal.
+- Un script peut produire un résumé chiffré stable du run.
+- Deux presets différents peuvent être comparés objectivement sur le même scénario.
+- L'outil aide réellement la décision de tuning au lieu d'ajouter de la confusion.
 
 🧱 PHASE 0 — Pré‑production (2 à 4 semaines)
 Objectif : verrouiller la vision, les systèmes, les outils, et préparer le pipeline technique.

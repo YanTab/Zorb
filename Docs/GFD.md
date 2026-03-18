@@ -1,4 +1,4 @@
- GAME FEATURES DOCUMENT — “ZORB EARTH RUN” (v1.1)
+ GAME FEATURES DOCUMENT — “ZORB EARTH RUN” (v1.2)
 
 1. Structure générale du jeu
 1.1. Genre
@@ -30,6 +30,39 @@ Comportement
 - Le Zorb roule automatiquement sous l’effet de la gravité.
 - Le joueur influence la direction, la gestion de l’énergie et la stabilité.
 
+2.3. Système de profils (Preset System)
+
+Objectif:
+- Proposer des styles de conduite différents sans créer de hiérarchie unique.
+
+Profils disponibles:
+- Classic
+- Agile
+- Heavy
+- Wild
+
+Spécification fonctionnelle:
+- Le profil actif modifie des multiplicateurs de comportement (vitesse, contrôle, grip, freinage, dynamique interne).
+- Le profil est sélectionnable en configuration et utilisable en benchmark automatisé.
+- Le profil ne doit pas casser les contrôles de base ni la lisibilité caméra.
+
+Contraintes d'équilibrage:
+- Chaque profil doit être top-1 sur au moins un scénario de référence.
+- Aucun profil ne doit être dernier sur tous les scénarios.
+- Les écarts inter-profils sur scénario standard doivent rester maîtrisés.
+- Les scénarios de benchmark doivent couvrir air + ground (flow, freinage, virages, checkpoint).
+
+Matrice de différenciation cible:
+- Classic: stabilité et constance en trajectoire.
+- Agile: relance et changements d'angle rapides.
+- Heavy: contrôle du freinage et tenue sur sections engagées.
+- Wild: bursts de performance avec variabilité plus élevée.
+
+Validation:
+- Mesure via télémétrie exportée et analyse offline.
+- Comparaison par scénario et classement global pondéré.
+- Runs invalides exclus (ex: respawn critique parasite pendant benchmark).
+
 3. Système d’Énergie (mécanique centrale)
 3.1. Accumulation d’énergie — “Roue libre”
 Le Zorb accumule de l’énergie lorsqu’il :
@@ -56,6 +89,26 @@ Boost / Accélération
 3.3. Capacité maximale
 - Limite d’énergie variable selon le Zorb
 - Peut être améliorée via progression (optionnel)
+
+3.4. Extension prévue — Capacités spéciales par profil (post-tuning)
+
+Statut:
+- Prévu, non implémenté dans cette version.
+
+Principe:
+- Chaque profil aura une capacité dédiée (active ou passive) avec contrepartie.
+
+Exemples de design (à valider):
+- Classic: mitigation ponctuelle des pertes de contrôle.
+- Agile: impulsion de relance courte.
+- Heavy: réduction temporaire du gain thermique.
+- Wild: burst renforcé avec coût thermique accru.
+
+Règles techniques à respecter:
+- cooldown explicite,
+- durée d'effet bornée,
+- impact mesurable via télémétrie,
+- pas de capacité "gratuite" sans trade-off.
 
 4. Système de Surchauffe (pilier du gameplay)
 4.1. Jauge de surchauffe
@@ -255,6 +308,6 @@ Si deux joueurs se frôlent à haute vitesse :
 - Synchrone (courses)
 - Interactions légères pour éviter la latence
 
-📗 FIN DU GAME FEATURES DOCUMENT — v1.1
+📗 FIN DU GAME FEATURES DOCUMENT — v1.2
 
 
